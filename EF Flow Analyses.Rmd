@@ -1,0 +1,557 @@
+---
+title: "E_Flows_Station_DATA"
+output: html_notebook
+---
+
+1) Install packages 
+
+```{r}
+install.packages("tidyhydat")
+install.packages("IHA")
+install.packages("Rtools")
+install.packages("IHA", repos="http://R-Forge.R-project.org")
+install.packages("plyr")
+install.packages("caTools")
+install.packages("tidyverse")
+install.packages("zoo")
+install.packages("lubridate")
+install.packages("png")
+install.packages("reticulate")
+install.packages("miniconda")
+
+```
+
+Import libraries
+```{r}
+library(png)
+library(reticulate)
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+```
+
+2) Download the HYDAT Database and save it in the same place as this file
+
+```{r}
+download_hydat()
+```
+
+
+```{r}
+```
+
+3) Read in the station numbers from Wendy for the Slave River Watershed and get a list of the station numbers
+
+Need to tidy this code- use new github link and load in so that it's a list of characters, then use in tidyhydat for stn numbers
+
+```{r}
+Slave_River_watershed <-  read_csv( "https://raw.githubusercontent.com/wendyamonk/WBNP_analyses/main/HYDAT_Slave_River_watershed.csv?token=GHSAT0AAAAAAB4LKYXMDYYNQDQGBQ6ITTFQY42MPCA" )
+SLave_River_watershed_Stations <- Slave_River_watershed %>%
+  select(STATION_NU) %>%
+summarise(STATION_NU = paste(STATION_NU,collapse = " , "))
+message(SLave_River_watershed_Stations)
+
+
+
+#select only the station numbers
+predam_stations <- Slave_River_watershed_Stations %>%
+select(station_number)
+
+
+#make as a list of characters
+as.list(as.character(predam_stations))
+
+#use this variable in the tidyhat package for station_number = 
+
+
+```
+
+Copy the output above and paste it into "stations_all" (need this to be automatized in the future- see code above)
+
+```{r}
+stations_all <- c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA008", "07AA009", "07AA010", "07AB002", "07AC001", "07AC002", "07AC003", "07AC004", "07AC005", "07AC006", "07AC007", "07AC008", "07AD001", "07AD002", "07AD003", "07AD004", "07AD005", "07AD006", "07AD007", "07AD008", "07AD009", "07AD010", "07AE001", "07AE002", "07AE003", "07AF001", "07AF002", "07AF003", "07AF004", "07AF005", "07AF008", "07AF009", "07AF010", "07AF011", "07AF012", "07AF013", "07AF014", "07AF015", "07AF016", "07AF906", "07AF907", 
+              "07AF909", "07AF910", "07AG001", "07AG002", "07AG003", "07AG004", "07AG005", "07AG006", "07AG007", "07AG008", "07AH001", "07AH002", "07AH003", "07BA001", "07BA002", "07BA003", "07BB001", "07BB002", "07BB003", "07BB004", "07BB005", "07BB006", "07BB007", "07BB008", "07BB009", "07BB010", "07BB011", "07BB012", "07BB013", "07BB014", "07BB903", "07BB914", "07BC001", "07BC002", "07BC003", "07BC004", "07BC005", "07BC006", "07BC007", "07BE001", "07BE002", "07BE003", "07BE004", "07BF001", "07BF002", "07BF004", 
+              "07BF006", "07BF007", "07BF008", "07BF009", "07BF010", "07BF905", "07BG004", "07BH001", "07BH003", "07BJ001", "07BJ002", "07BJ003", "07BJ004", "07BJ005", "07BJ006", "07BK001", "07BK002", "07BK003", "07BK004", "07BK005", "07BK006", "07BK007", "07BK008", "07BK009", "07BK010", "07BK012", "07CA001", "07CA002", "07CA003", "07CA004", "07CA005", "07CA006", "07CA008", "07CA010", "07CA011", "07CA012", "07CA013", "07CA901", "07CB001", "07CB002", "07CC001", "07CC002", "07CD001", "07CD002", 
+              "07CD003", "07CD004", "07CD005", "07CD006", "07CD007", "07CD008", "07CD009", "07CE001", "07CE002", "07CE003", "07CE004", "07CE005", "07CE006", "07CE007", "07CE008", "07CE010", "07CE013", "07CE906", "07DA001", "07DA002", "07DA003", "07DA004", "07DA005", "07DA006", "07DA007", "07DA008", "07DA009", "07DA010", "07DA011", "07DA012", "07DA013", "07DA014", "07DA015", "07DA016", "07DA017", "07DA018", "07DA019", "07DA020", "07DA021", "07DA022", "07DA023", "07DA024", "07DA025", "07DA026", "07DA027", "07DA028", 
+              "07DA029", "07DA030", "07DA032", "07DA033", "07DA034", "07DA035", "07DA037", "07DA038", "07DA039", "07DA040", "07DA041", "07DA042", "07DA044", "07DA045", "07DB001", "07DB002", "07DB003", "07DB004", "07DB005", "07DB006", "07DC001", "07DC002", "07DC003", "07DC004", "07DD001", "07DD002", "07DD003", "07DD004", "07DD005", "07DD006", "07DD007", "07DD008", "07DD009", "07DD010", "07DD011", "07EA001", "07EA002", "07EA004", "07EA005", "07EA006", "07EA007", "07EB001", "07EB002", "07EC001", "07EC002", "07EC003", 
+              "07EC004", "07ED001", "07ED002", "07ED003", "07EE002", "07EE003", "07EE004", "07EE005", "07EE007", "07EE008", "07EE009", "07EE010", "07EE011", "07EF001", "07EF002", "07EF003", "07EF004", "07FA001", "07FA003", "07FA004", "07FA005", "07FA006", "07FA007", "07FB001", "07FB002", "07FB003", "07FB004", "07FB005", "07FB006", "07FB007", "07FB008", "07FB009", "07FB010", "07FB011", "07FC001", "07FC002", "07FC003", "07FC004", "07FC005", "07FC006", "07FC007", "07FD001", "07FD002", "07FD003", "07FD004", "07FD005", 
+              "07FD006", "07FD007", "07FD008", "07FD009", "07FD010", "07FD011", "07FD012", "07FD013", "07FD014", "07FD015", "07FD016", "07FD017", "07FD019", "07FD020", "07FD901", "07FD908", "07FD910", "07FD912", "07FD913", "07FD921", "07FD934", "07GA001", "07GA002", "07GB001", "07GB002", "07GB003", "07GC001", "07GC002", "07GD001", "07GD002", "07GD003", "07GD004", "07GE001", "07GE002", "07GE003", "07GE004", "07GE005", "07GE006", "07GE007", "07GF001", "07GF002", "07GF003", "07GF004", "07GF005", "07GF006", "07GF007", 
+              "07GF008", "07GG001", "07GG002", "07GG003", "07GH001", "07GH002", "07GH003", "07GH004", "07GH005", "07GH906", "07GJ001", "07GJ004", "07GJ005", "07HA001", "07HA002", "07HA003", "07HA005", "07HA902", "07HA914", "07HB001", "07HB002", "07HC001", "07HC002", "07HC907", "07HD001", "07HF001", "07HF002", "07JA001", "07JA002", "07JA003", "07JB001", "07JB002", "07JC001", "07JC002", "07JC003", "07JD001", "07JD002", "07JD003", "07JD004", "07JF002", "07JF003", "07JF004", "07JF005", "07KA002", "07KC001", "07KC003", 
+              "07KC004", "07KC005", "07KE001", "07KF001", "07KF002", "07KF003", "07KF004", "07KF005", "07KF006", "07KF007", "07KF008", "07KF010", "07KF013", "07KF014", "07KF015", "07LB001", "07LB002", "07LC002", "07LC003", "07LD001", "07LD002", "07LD003", "07LE001", "07LE002", "07LE003", "07LE004", "07MA003", "07MA004", "07MA005", "07MB001", "07MC001", "07MC002", "07MC003", "07MD001", "07MD002", "07NA001", "07NA002", "07NA003", "07NA004", "07NA005", "07NA007", "07NA008", "07NB001", "07NB002", "07NB003", "07NB004", 
+              "07NB005", "07NB006", "07NB007", "07NB008", "07NC001", "07NC002", "07NC003", "07NC004", "07NC005", "07NC006", "07NC007", "07NC008", "07NC009", "07PB002", "07QC008")
+
+```
+
+List of Metadata for all stations:
+#need to add in the characer obj from above for station number
+#with a try-catch otherwise it won't work
+```{r}
+Stations_metadata_onelist <- hy_stn_data_coll(station_number = c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA008", "07AA009", "07AA010", "07AB002", "07AC001", "07AC002", "07AC003", "07AC004", "07AC005", "07AC006", "07AC007", "07AC008", "07AD001", "07AD002", "07AD003", "07AD004", "07AD005", "07AD006", "07AD007", "07AD008", "07AD009", "07AD010", "07AE001", "07AE002", "07AE003", "07AF001", "07AF002", "07AF003", "07AF004", "07AF005", "07AF008", "07AF009", "07AF010", "07AF011", "07AF012", "07AF013", "07AF014", "07AF015", "07AF016", "07AF906", "07AF907", 
+              "07AF909", "07AF910", "07AG001", "07AG002", "07AG003", "07AG004", "07AG005", "07AG006", "07AG007", "07AG008", "07AH001", "07AH002", "07AH003", "07BA001", "07BA002", "07BA003", "07BB001", "07BB002", "07BB003", "07BB004", "07BB005", "07BB006", "07BB007", "07BB008", "07BB009", "07BB010", "07BB011", "07BB012", "07BB013", "07BB014", "07BB903", "07BB914", "07BC001", "07BC002", "07BC003", "07BC004", "07BC005", "07BC006", "07BC007", "07BE001", "07BE002", "07BE003", "07BE004", "07BF001", "07BF002", "07BF004", 
+              "07BF006", "07BF007", "07BF008", "07BF009", "07BF010", "07BF905", "07BG004", "07BH001", "07BH003", "07BJ001", "07BJ002", "07BJ003", "07BJ004", "07BJ005", "07BJ006", "07BK001", "07BK002", "07BK003", "07BK004", "07BK005", "07BK006", "07BK007", "07BK008", "07BK009", "07BK010", "07BK012", "07CA001", "07CA002", "07CA003", "07CA004", "07CA005", "07CA006", "07CA008", "07CA010", "07CA011", "07CA012", "07CA013", "07CA901", "07CB001", "07CB002", "07CC001", "07CC002", "07CD001", "07CD002", 
+              "07CD003", "07CD004", "07CD005", "07CD006", "07CD007", "07CD008", "07CD009", "07CE001", "07CE002", "07CE003", "07CE004", "07CE005", "07CE006", "07CE007", "07CE008", "07CE010", "07CE013", "07CE906", "07DA001", "07DA002", "07DA003", "07DA004", "07DA005", "07DA006", "07DA007", "07DA008", "07DA009", "07DA010", "07DA011", "07DA012", "07DA013", "07DA014", "07DA015", "07DA016", "07DA017", "07DA018", "07DA019", "07DA020", "07DA021", "07DA022", "07DA023", "07DA024", "07DA025", "07DA026", "07DA027", "07DA028", 
+              "07DA029", "07DA030", "07DA032", "07DA033", "07DA034", "07DA035", "07DA037", "07DA038", "07DA039", "07DA040", "07DA041", "07DA042", "07DA044", "07DA045", "07DB001", "07DB002", "07DB003", "07DB004", "07DB005", "07DB006", "07DC001", "07DC002", "07DC003", "07DC004", "07DD001", "07DD002", "07DD003", "07DD004", "07DD005", "07DD006", "07DD007", "07DD008", "07DD009", "07DD010", "07DD011", "07EA001", "07EA002", "07EA004", "07EA005", "07EA006", "07EA007", "07EB001", "07EB002", "07EC001", "07EC002", "07EC003", 
+              "07EC004", "07ED001", "07ED002", "07ED003", "07EE002", "07EE003", "07EE004", "07EE005", "07EE007", "07EE008", "07EE009", "07EE010", "07EE011", "07EF001", "07EF002", "07EF003", "07EF004", "07FA001", "07FA003", "07FA004", "07FA005", "07FA006", "07FA007", "07FB001", "07FB002", "07FB003", "07FB004", "07FB005", "07FB006", "07FB007", "07FB008", "07FB009", "07FB010", "07FB011", "07FC001", "07FC002", "07FC003", "07FC004", "07FC005", "07FC006", "07FC007", "07FD001", "07FD002", "07FD003", "07FD004", "07FD005", 
+              "07FD006", "07FD007", "07FD008", "07FD009", "07FD010", "07FD011", "07FD012", "07FD013", "07FD014", "07FD015", "07FD016", "07FD017", "07FD019", "07FD020", "07FD901", "07FD908", "07FD910", "07FD912", "07FD913", "07FD921", "07FD934", "07GA001", "07GA002", "07GB001", "07GB002", "07GB003", "07GC001", "07GC002", "07GD001", "07GD002", "07GD003", "07GD004", "07GE001", "07GE002", "07GE003", "07GE004", "07GE005", "07GE006", "07GE007", "07GF001", "07GF002", "07GF003", "07GF004", "07GF005", "07GF006", "07GF007", 
+              "07GF008", "07GG001", "07GG002", "07GG003", "07GH001", "07GH002", "07GH003", "07GH004", "07GH005", "07GH906", "07GJ001", "07GJ004", "07GJ005", "07HA001", "07HA002", "07HA003", "07HA005", "07HA902", "07HA914", "07HB001", "07HB002", "07HC001", "07HC002", "07HC907", "07HD001", "07HF001", "07HF002", "07JA001", "07JA002", "07JA003", "07JB001", "07JB002", "07JC001", "07JC002", "07JC003", "07JD001", "07JD002", "07JD003", "07JD004", "07JF002", "07JF003", "07JF004", "07JF005", "07KA002", "07KC001", "07KC003", 
+              "07KC004", "07KC005", "07KE001", "07KF001", "07KF002", "07KF003", "07KF004", "07KF005", "07KF006", "07KF007", "07KF008", "07KF010", "07KF013", "07KF014", "07KF015", "07LB001", "07LB002", "07LC002", "07LC003", "07LD001", "07LD002", "07LD003", "07LE001", "07LE002", "07LE003", "07LE004", "07MA003", "07MA004", "07MA005", "07MB001", "07MC001", "07MC002", "07MC003", "07MD001", "07MD002", "07NA001", "07NA002", "07NA003", "07NA004", "07NA005", "07NA007", "07NA008", "07NB001", "07NB002", "07NB003", "07NB004", 
+              "07NB005", "07NB006", "07NB007", "07NB008", "07NC001", "07NC002", "07NC003", "07NC004", "07NC005", "07NC006", "07NC007", "07NC008", "07NC009", "07PB002", "07QC008"))
+
+```
+## FLOW DATA TRIAL AND ERROR -- to get stns to analyze ##
+
+4) Flow metadata, keeping only the stations with 20 years of total data, regardless of if they are c/s/m. 
+Here I subtract the years of operation and add up for each station to get total number of years.
+
+```{r}
+
+#Ended up not using this list but instead use the cleaning code below on all of them - it works.
+
+Stations_metadata_flow_20yrsdata <- Stations_metadata_onelist %>%
+  #getting rid of operation type (we don't care if its s/c/m for now)
+select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to,  ) %>%
+  #only flow data
+filter(DATA_TYPE == 'Flow') %>%
+  #keep station numbers together
+group_by(STATION_NUMBER) %>%
+  #make a new column with the max and min dates
+mutate(min_date = min(Year_from),
+            max_date = max(Year_to)) %>%
+  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
+select(STATION_NUMBER, DATA_TYPE, max_date, min_date) %>%
+  #get rid of max date and min date duplicates
+  distinct() %>%
+  #take the diff between max and min date
+mutate(diff = max_date - min_date) %>%
+  #keep only those with greater than or equal to 20 years of data, total (might not be consecutive)
+filter(diff >= 20)  
+  
+View(Stations_metadata_flow_20yrsdata)
+
+#197 flow stations with varying amounts of C,S,M which aren't shown
+
+```
+
+Use the list of stations (Stations_metadata_onelist) to get flow only and years more than 20 to write to a csv file and make dumbell plots in Python. 
+-can tidy this so using the previous object (Stations_metadata_flow_20yrsdata) for this rather than re-tidying below 
+
+```{r}
+
+Stations_metadata_flow <- Stations_metadata_onelist %>%
+select(STATION_NUMBER, DATA_TYPE, OPERATION, Year_from, Year_to ) %>%
+filter(DATA_TYPE == 'Flow') %>%
+mutate(num_years =  Year_to - Year_from) %>%
+group_by(STATION_NUMBER) %>%
+  mutate(total_years = sum(num_years)) %>%
+  filter(total_years >= 20) 
+
+View(Stations_metadata_flow)
+
+#should give about 197 stations total
+#Write to a csv file and make dumbell plots in Python
+#write.csv(Stations_metadata_flow, "Stations_metadata_flow.csv")
+
+```
+
+Dumbbell plots were made in PyCharm using csv file above, and a selection of stations was made. Then get metadata from the subset of stations and tidy to find stations that have full data between 1947-1967. 
+
+```{r} 
+#get stations from the subset of stations
+stations_to_analyze  <- read.csv("E Flows Station Numbers for Analysis.csv")
+
+```
+
+Pre-dam stations- get rid of blanks and make into a list
+
+```{r} 
+
+#select only the list of pre-dam station numbers
+predam_stations <- stations_to_analyze %>%
+select(pre.dam..1947.1967)
+
+
+#delete rows that are na or blanks
+predam_stations <- predam_stations[!(is.na(predam_stations$pre.dam..1947.1967) | predam_stations$pre.dam..1947.1967==""), ]
+
+#make as a list of characters
+as.list(as.character(predam_stations))
+
+#use this variable in the tidyhat package for station_number = 
+
+```
+
+Then go back and re-collect metadata from the predam station subset that was found using dumbell plots
+
+```{r} 
+Stations_metadata_predam_stations <- hy_stn_data_coll(station_number = predam_stations)
+
+```
+
+Then tidy flow data between 1947-1967 for the full 20 years and make into a list 
+
+```{r} 
+Stations_metadata_predam_stations_fl <- Stations_metadata_predam_stations %>%
+select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT, OPERATION ) %>%
+  #only flow data
+filter(DATA_TYPE == 'Flow') %>%
+  #only list years that start before 1967
+filter(Year_from < 1967) %>%
+  #only list years that end after 1940
+filter(Year_to >= 1940)  %>%
+group_by(STATION_NUMBER) %>%
+  #add max and min dates
+mutate(min_date = min(Year_from),
+            max_date = max(Year_to)) %>%
+  #only choose min dates that start before 1950
+filter(min_date <= 1950) %>%
+  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
+select(STATION_NUMBER, DATA_TYPE, max_date, min_date)  %>%
+  #get rid of max date and min date duplicates
+  distinct()
+
+View(Stations_metadata_predam_stations_fl)
+#results in 7 stations of flow predam data 
+
+#Write to a csv file 
+#write.csv(Stations_metadata_predam_stations_fl, "Stations_metadata_predam_stations_fl_max_min_dates.csv")
+
+#then can export into a list 
+
+predam_st_7_stns <- Stations_metadata_predam_stations_fl %>%
+select(STATION_NUMBER)
+
+#make as a list of characters
+as.list(as.character(predam_st_7_stns))
+
+#use this variable in the tidyhat package for "station_number = "
+
+```
+
+Compare 1947-1967 full stations to the postdam station list to see if there are any potentialities there 
+```{r} 
+unique(postdam_stations[postdam_stations %in% predam_st_7_stns])
+#there are none unfortunately 
+```
+
+#1. METHOD SWITCH-
+
+##NOW REALIZING I CAN RUN THE ABOVE CODE ON ALL THE STATIONS AND I DON'T NEED TO USE THE DUMBBELL PLOTS## 
+## WILL DO THIS GOING FORWARDS 
+
+```{r}
+
+#GETTING PREDAM STATIONS- 20 YRS AND PUT INTO A LIST 
+
+Stations_flow_1947_67 <- Stations_metadata_onelist %>%
+select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT, OPERATION ) %>%
+  #only flow data
+filter(DATA_TYPE == 'Flow') %>%
+  #only list years that start before 1967
+filter(Year_from < 1967) %>%
+  #only list years that end after 1940
+filter(Year_to >= 1940)  %>%
+group_by(STATION_NUMBER) %>%
+  #add max and min dates
+mutate(min_date = min(Year_from),
+            max_date = max(Year_to)) %>%
+  #only choose min dates that start before 1950
+filter(min_date <= 1950) %>%
+  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
+select(STATION_NUMBER, DATA_TYPE, min_date, max_date)  %>%
+  #get rid of max date and min date duplicates
+  distinct()
+
+View(Stations_flow_1947_67)
+
+predam_flow_stn <- Stations_flow_1947_67 %>%
+select(STATION_NUMBER)
+
+View(predam_flow_stn)
+
+#make as a list of characters
+as.list(as.character(predam_flow_stn))
+
+
+```
+
+##NOW WE HAVE A LIST OF PREDAM FLOW STNS AND CAN START TO TIDY AND DO ANALYSES ON THEM ##
+
+##NEXT LOOK AT POST DAM AND SEE IF ANY ARE IN COMMON -- doesn't look like it though.
+
+##THEN FIND ONES IN FORT SMITH AREA
+
+```{r}
+
+predam_flow_stn 
+
+```
+
+##NEXT WRITE CODE TO FIND POST-DAM STATIONS, NOT USING THE DUMBELL PLOTS, JUST FROM THE FULL LIST 
+
+```{r}
+Stations_flow_1969_89 <- Stations_metadata_onelist %>%
+select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT, OPERATION ) %>%
+  #only flow data
+filter(DATA_TYPE == 'Flow') %>%
+  #only list years that start before 1990
+filter(Year_from < 1990) %>%
+  #only list years that end after 1969
+filter(Year_to >= 1969)  %>%
+group_by(STATION_NUMBER) %>%
+  #add max and min dates
+mutate(min_date = min(Year_from),
+            max_date = max(Year_to)) %>%
+  #only choose min dates that start before 1950
+filter(min_date <= 1972) %>%
+  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
+select(STATION_NUMBER, DATA_TYPE, min_date, max_date)  %>%
+  #get rid of max date and min date duplicates
+  distinct()
+
+#gives 135 stations
+
+View(Stations_flow_1969_89)
+
+
+postdam_flow_stn <- Stations_flow_1969_89 %>%
+select(STATION_NUMBER)
+
+View(postdam_flow_stn)
+
+#make as a list of characters
+as.list(as.character(postdam_flow_stn))
+```
+
+#put non csv stations from above code into a list and compare with the csv list 
+
+```{r}
+
+Stations_flow_1969_89_noncsv <- Stations_flow_1969_89  %>% 
+  select(STATION_NUMBER)
+
+
+Stations_flow_1969_89_noncsv <- Stations_flow_1969_89_noncsv[!(is.na(Stations_flow_1969_89_noncsv$STATION_NUMBER) | Stations_flow_1969_89_noncsv$STATION_NUMBER==""), ]
+
+as.list(as.character(Stations_flow_1969_89_noncsv))
+
+```
+
+
+#load in the csv of post dam stations and convert to list for comparison
+```{r}
+
+post_dam_stns_csv <- read.csv("E Flows Station Numbers for Analysis.csv") 
+
+
+post_dam_stns_csv_tidy <- post_dam_stns_csv %>%
+select(post.dam..1969.1989) %>%
+  rename(STATION_NUMBER = post.dam..1969.1989 )
+
+#as.list(as.character(post_dam_stns_csv_tidy))
+View(post_dam_stns_csv_tidy)
+
+```
+
+#NOT SURE WHY THIS WONT WORK
+```{r} 
+unique(Stations_flow_1969_89_noncsv[Stations_flow_1969_89_noncsv %in% post_dam_stns_csv_tidy])
+
+#Stations_flow_1969_89_noncsv %in% post_dam_stns_csv_tidy
+
+
+#unique(postdam_stations[postdam_stations %in% predam_stations])
+```
+
+#PROCEED WITH COMPARING PRE AND POST DAM STATIONS USING TIDYING METHOD
+```{r}
+
+#predam_flow_stn vs postdam_flow_stn
+
+unique(postdam_flow_stn[postdam_flow_stn %in% predam_flow_stn])
+
+#this didn't work but stations in common are: 07AA007, 07BE001, 07ED001, 07EF001, 07FA001, 07FD001, 07FD002
+
+#one near ft smith: 07NB001
+
+```
+
+##2 PART 2## 
+##SINGLE STATION WORKFLOW ##
+#NOW TRY TO TIDY DATA AND GET A FORT SMITH DATA SET
+
+```{r} 
+Fort_Smith_Flows <- tidyhydat::hy_daily_flows(station_number = "07NB001")
+
+```
+
+#Select only the date and flow data and omit Nas and set the Dates as date
+
+```{r} 
+flow_data <- Fort_Smith_Flows %>%
+  select(Date, Value) %>%
+  na.omit()
+
+flow_data_predam <- flow_data %>%
+  #filter(Date >= 1947-01-01)
+  filter(Date < "1967-01-01" & Date > "1947-01-01")
+
+#Make the dates into dates in R
+#as.Date(flow_data$Date)
+```
+
+#Separate into separate data frames (pre and post Bennett dam) based on dates 
+
+```{r} 
+flow_data <- Fort_Smith_Flows %>%
+  select(Date, Value) %>%
+  na.omit()
+
+flow_data_postdam <- flow_data %>%
+  filter(Date > "1969-01-01" & Date < "1990-01-01")
+
+View(flow_data_postdam) 
+
+
+```
+
+##Can see if there are missing years by finding the unique years
+
+```{r} 
+
+years <- format(flow_data_predam$Date, "%Y")
+
+unique_years <- unique(years)
+
+all_years <- seq(min(unique_years), max(unique_years), by = 1)
+
+missing_years <- setdiff(all_years, unique_years)
+
+View(missing_years) #should be zero
+
+any(missing_years) #says if there is anything in the list
+```
+
+#Make the dates into a day-month-year form
+```{r}
+
+##This worked
+#This works but just gives date column
+#flow_data_date$Date <- format(flow_data$Date, "%d-%m-%Y")
+
+#Use mutate to keep both the date and value column 
+flow_data_date <- flow_data %>%
+mutate(Date = format(Date,"%d-%m-%Y"))
+
+
+```
+
+
+```{r} 
+
+
+  
+```
+
+
+```{r} 
+
+
+```
+
+
+
+```{r} 
+## Convert data to zoo object
+flow_data <- zoo(flow_data_date$Value, order.by = as.Date(as.character(flow_data_date$Date), format = "%d-%m-%Y"))
+```
+
+
+```{r}
+Flow_data_Wendy <- read.csv("Flow_data.csv")
+
+Flow_data_Wendy <- zoo(Flow_data_Wendy$Flow, order.by = as.Date(as.character(Flow_data_Wendy$Date), format = "%d-%m-%Y"))
+
+
+```
+
+
+
+```{r}
+
+## Run IHA analyses
+group1_output <- group1(flow_data, year = "water", FUN = median)
+group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
+group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
+group4_output <- group4(flow_data, year = "water")
+group5_output <- group5(flow_data, year = "water")
+
+## Convert outputs
+group1_output <- as.data.frame(group1_output)
+group2_output <- group2_output[,-1]
+group3_output <- as.data.frame(group3_output)
+group4_output <- as.data.frame(group4_output)
+group5_output <- as.data.frame(group5_output)
+
+
+## Create output file
+IHA_output <- bind_cols(list(group1_output, group2_output, group3_output,
+                             group4_output, group5_output))
+
+## Write output file - remember to change output file name
+write.csv(IHA_output, "YourNewShinyOutput.csv")
+
+```
+
+
+```{r} 
+
+```
+
+
+```{r} 
+```
+
+
+
+
+```{r} 
+
+
+```
+
+
+
+```{r}
+
+
+
+
+
+```
+
+?)Make sure estimated data is correct and that there are no major missing values (need to write rules we want to guide this....)
+```{r}
+
+
+```
+
+
+?)Remove stations with missing values for certain time periods
+```{r}
+
+
+```
+
+?)Do IHA Calculations - separate into flow and data columns and then use IHA package and R spreadsheet given
+```{r}
+
+```
+
+?) Make graphs 
+```{r}
+
+
+```
