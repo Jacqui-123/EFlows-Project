@@ -1,0 +1,94 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Import libraries
+```{r}
+library(png)
+library(reticulate)
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+```
+
+Tidy data for water level: Keep only the stations with 20 years of data, regardless of if they are c/s/m 
+note: taking a different approach and subtracting the years of operation and then adding for each station, see #5
+-note: need to add this to a separate water level r code file, keep these separate for now.
+
+
+```{r}
+
+Stations_metadata_wl_20yrsdata <- Stations_metadata_onelist %>%
+  #getting rid of operation type (we don't care if its s/c/m for now)
+select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to ) %>%
+  #only water level data
+filter(DATA_TYPE == 'Water Level') %>%
+  #keep station numbers together
+group_by(STATION_NUMBER) %>%
+  #make a new column with the max and min dates
+mutate(min_date = min(Year_from),
+            max_date = max(Year_to)) %>%
+  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
+select(STATION_NUMBER, DATA_TYPE, max_date, min_date) %>%
+  #get rid of max date and min date duplicates
+  distinct() %>%
+  #take the diff between max and min date
+mutate(diff = max_date - min_date) %>%
+  #keep only those with greater than or equal to 20 years of data
+filter(diff >= 20)  
+  
+View(Stations_metadata_wl_20yrsdata)
+
+Make a list of stations with 20 years or more of water level data to be able to use in the tidyhydat function hy_daily_levels and hy_stn_data_coll
+-note: need to add this to a separate water level r code file, keep these separate for now.
+
+```{r}
+#select only the station numbers and make them characters
+WL_ST_20yrs = Stations_metadata_wl_20yrsdata %>% 
+select(STATION_NUMBER)
+as.list(as.character(WL_ST_20yrs))
+
+#make a concatenated list 
+st_nu_WL <- c()
+#loop through the df of only station numbers and append to the concatenated list
+for (st in WL_ST_20yrs) {
+ new_var = WL_ST_20yrs$STATION_NUMBER + ","
+  #append(st_nu_WL, new_var)
+  st_nu_WL = append(st_nu_WL, new_var)    # Appending new value to vector
+}
+
+#can use st_nu_WL as station number for hy_daily_levels to gather wl data for those stations
+
+```
+
+Test with just WL to see if can separate by c/s/m
+This isn't working, ignore for now
+-note: need to add this to a separate water level r code file, keep these separate for now.
+
+```{r}
+Stations_20yrs_metadata <- hy_stn_data_coll(station_number = st_nu_WL)
+
+Stations_20yrs_wl_metadata <- Stations_wl_20yrs_metadata %>%
+  #only water level data
+filter(DATA_TYPE == 'Water Level') %>%
+  summarize(STATION_NUMBER, OPERATION) %>%
+  distinct()
+#casewhen isn't working- it wont group see station numbers together
+mutate(type = case_when(OPERATION == "Seasonal" ~ "Seasonal Only",
+                          OPERATION == "Miscellaneous" ~ "Miscellaneous Only",
+                          OPERATION == "Continuous" ~ "Continuous Only",
+                          (OPERATION == "Seasonal" & OPERATION == "Continuous") ~ "Seasonal and Continuous ",
+                          (OPERATION == "Seasonal" & OPERATION == "Miscellaneous") ~ "Seasonal and Miscellaneous",
+                          (OPERATION == "Continuous" & OPERATION == "Miscellaneous") ~ "Continuous and Miscellaneous")
+                          )
+
+View(Stations_20yrs_wl_metadata)
+
+#50 wl stations with varying amounts of C,S,M
+```
+
+
