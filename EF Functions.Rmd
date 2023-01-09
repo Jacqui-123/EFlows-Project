@@ -1,0 +1,132 @@
+
+## FUNCTIONS USED TO TIDY STATION META DATA FOR FLOW ##
+
+
+1) Returns a DF of all pre-Bennett dam stations from 1947-1967. Input: a df of the station metadata from hy_stn_data_coll in hydat.
+
+```{r}
+Stations_pre_Bennett <- function(df, STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT) {
+  
+library(dplyr)
+df <- df %>%
+select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT ) %>%
+  #only flow data
+filter(DATA_TYPE == 'Flow') %>%
+  #only list years that start before 1967
+filter(Year_from < 1967) %>%
+  #only list years that end after 1940
+filter(Year_to >= 1940)  %>%
+group_by(STATION_NUMBER) %>%
+  #add max and min dates
+mutate(min_date = min(Year_from),
+            max_date = max(Year_to)) %>%
+  #only choose min dates that start before 1950
+filter(min_date <= 1950) %>%
+  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
+select(STATION_NUMBER, DATA_TYPE, min_date, max_date)  %>%
+  #get rid of max date and min date duplicates
+  distinct()
+  return(df)
+
+
+}
+
+```
+
+2) Returns a DF of post-Bennett dam stations from 1969-1989. Input: a df of the station metadata from hy_stn_data_coll in hydat.
+
+```{r}
+Stations_post_Bennett <- function(df,STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT ) {
+  library(dplyr)
+  df <- df %>%
+select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT, OPERATION ) %>%
+  #only flow data
+filter(DATA_TYPE == 'Flow') %>%
+  #only list years that start before 1990
+filter(Year_from < 1990) %>%
+  #only list years that end after 1969
+filter(Year_to >= 1969)  %>%
+group_by(STATION_NUMBER) %>%
+  #add max and min dates
+mutate(min_date = min(Year_from),
+            max_date = max(Year_to)) %>%
+  #only choose min dates that start before 1950
+filter(min_date <= 1972) %>%
+  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
+select(STATION_NUMBER, DATA_TYPE, min_date, max_date)  %>%
+  #get rid of max date and min date duplicates
+  distinct()
+  return(df)
+}
+
+
+```
+
+## FUNCTIONS USED TO TIDY FLOW DATA ##
+## Prep for IHA calculations ## 
+
+3) Returns a DF of pre-Bennett years (1947-67) from a df of one or more stations, that can then be put into IHA calculation sheet. Input: a single df of the flow data for one or more stations from hy_daily_flows in hydat.
+```{r}
+
+flow_data_predam <- function(df,Date, Value) {
+library(dplyr)
+df <- df %>%
+  select(Date, Value) %>%
+  na.omit()%>%
+  filter(Date < "1967-01-01" & Date > "1947-01-01") %>%
+  mutate(Date = format(Date,"%d-%m-%Y"))
+  return(df)
+}
+
+```
+
+4) Returns a DF of post-Bennett years (1969-89) from a df of one or more stations that can then be put into IHA calcs. Input: a single df of the flow data for one or more stations from hy_daily_flows in hydat.
+ 
+```{r}
+
+flow_data_postdam <- function(df,Date, Value) {
+library(dplyr)
+df <- df %>%
+  select(Date, Value) %>%
+  na.omit() %>%
+  filter(Date > "1969-01-01" & Date < "1990-01-01") %>%
+    mutate(Date = format(Date,"%d-%m-%Y"))
+  return(df)
+}
+
+```
+
+5) Find out if there are missing years in the data set. Will return "false" if there are no missing years, or a df of missing years. Needs to be in the tidyhydat format of year-month-day, so use before run in function 3, 4 (Stations_post_Bennett etc).
+#not sure if missing years are okay or not in IHA calcs## 
+```{r} 
+yrs_missing <- function(df, Date) {
+years <- format(df$Date, "%Y")
+unique_years <- unique(years)
+all_years <- seq(min(unique_years), max(unique_years), by = 1)
+missing_years <- setdiff(all_years, unique_years)
+
+View(missing_years) #should be zero
+any(missing_years) #says if there is anything in the list
+print(missing_years())
+}
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+
+
+```
+
+
+```{r}
+
+
+
+```
+
