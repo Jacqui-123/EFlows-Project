@@ -1,0 +1,49 @@
+
+
+##IHA CALCULATIONS ##
+
+```{r}
+library(IHA)
+library(zoo)
+library(lubridate)
+library(dplyr)
+
+```
+
+
+```{r}
+
+
+
+```
+
+
+```{r}
+#Dates must first be in day-month-year format, with one column of values (flow), one of dates
+
+## Convert data to zoo object
+flow_data <- zoo(df$Value, order.by = as.Date(as.character(df$Date), format = "%d-%m-%Y"))
+
+## Run IHA analyses
+group1_output <- group1(flow_data, year = "water", FUN = median)
+group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
+group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
+group4_output <- group4(flow_data, year = "water")
+group5_output <- group5(flow_data, year = "water")
+
+## Convert outputs
+group1_output <- as.data.frame(group1_output)
+group2_output <- group2_output[,-1]
+group3_output <- as.data.frame(group3_output)
+group4_output <- as.data.frame(group4_output)
+group5_output <- as.data.frame(group5_output)
+
+
+## Create output file
+IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
+
+## Write output file - remember to change output file name
+write.csv(IHA_output, "Your_Output.csv")
+
+```
+
