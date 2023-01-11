@@ -14,7 +14,6 @@ ggplot(data = IHA_both, aes(x =Year, y = Reversals, group = 1) ) +
      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
     theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
   theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) 
- 
   
 
 ```
@@ -24,9 +23,9 @@ Coloured by time period (pre/post dam).
 
 ```{r}
 
-dontgraph <- c("Year", "Time_Period")
+dontgraphme <- c("Year", "Time_Period")
 
-for (col in names(IHA_both)[!names(IHA_both) %in% dontgraph]) {
+for (col in names(IHA_both)[!names(IHA_both) %in% dontgraphme]) {
   print(ggplot(data = IHA_both, aes(x = Year, y = IHA_both[,col], group = 1 )) +
           geom_line(aes(colour = Time_Period) ) +
       geom_point(aes(colour = Time_Period)) +
@@ -38,7 +37,109 @@ for (col in names(IHA_both)[!names(IHA_both) %in% dontgraph]) {
     theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
   theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) ) 
   }
+```
+Boxplots of IHA variables: 
 
+Y = flow and x = the IHA variables passed in to the function.
+
+Coloured by time period (pre/post dam).
+
+Minimum flow
+```{r}
+
+boxplot_min <- function(df) {
+
+
+p <-  IHA_both %>% 
+  na.omit() %>%
+  select('Year', '1 Day Min', '3 Day Min', '7 Day Min', '30 Day Min', '90 Day Min', 'Time_Period') %>%
+  pivot_longer(., cols = c('1 Day Min', '3 Day Min', '7 Day Min','30 Day Min' , '90 Day Min'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
+facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+geom_boxplot() +
+  geom_point() +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+       theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+  scale_fill_manual(values = c("orange","light blue"), 
+                    labels = c("Pre Dam", "Post Dam")) +
+  xlab("") +
+  ylab("") 
+
+return(p)
+
+}
+
+```
+
+Boxplots of IHA variables: 
+
+Maximum Flow
+```{r}
+
+
+boxplot_max <- function(df) {
+
+
+p <-  IHA_both %>% 
+  na.omit() %>%
+  select('Year', '1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max' , '90 Day Max','Time_Period') %>%
+  pivot_longer(., cols = c('1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max', '90 Day Max'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
+facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+geom_boxplot() +
+  geom_point() +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+  scale_fill_manual(values = c("orange","light blue"), 
+                    labels = c("Pre Dam", "Post Dam")) +
+  xlab("") +
+  ylab("") 
+
+return(p)
+
+}
+
+
+```
+
+Boxplots of IHA variables: 
+
+Flow by month
+```{r}
+
+boxplot_month <- function(df) {
+  
+p <-  IHA_both %>% 
+  na.omit() %>%
+  select('Year', 'October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September', 'Time_Period') %>%
+  pivot_longer(., cols = c('October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
+facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+geom_boxplot() +
+  geom_point() +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+  scale_fill_manual(values = c("orange","light blue"), 
+                    labels = c("Pre Dam", "Post Dam")) +
+  xlab("") +
+  ylab("") +
+  aes(x = fct_inorder(Var)) +
+
+return(p)
+
+}
 
 ```
 
