@@ -1,0 +1,45 @@
+## FUNCTIONS USED TO TIDY STATION META DATA FOR FLOW ##
+
+
+Line graph of one IHA output variable at a time. Coloured by time period (pre/post dam).
+
+```{r}
+
+ggplot(data = IHA_both, aes(x =Year, y = Reversals, group = 1) ) +
+          geom_line(aes(colour = Time_Period) ) +
+      geom_point(aes(colour = Time_Period)) +
+  ggtitle( "07NB001 \nReversals") +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) 
+ 
+  
+
+```
+
+Line graphs of all IHA variables, where x= year and y = each variable in succession.
+Coloured by time period (pre/post dam).
+
+```{r}
+
+dontgraph <- c("Year", "Time_Period")
+
+for (col in names(IHA_both)[!names(IHA_both) %in% dontgraph]) {
+  print(ggplot(data = IHA_both, aes(x = Year, y = IHA_both[,col], group = 1 )) +
+          geom_line(aes(colour = Time_Period) ) +
+      geom_point(aes(colour = Time_Period)) +
+  ggtitle(col)  +
+    ylab(col) +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) ) 
+  }
+
+
+```
+
+
