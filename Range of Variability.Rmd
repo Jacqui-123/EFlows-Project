@@ -1,0 +1,29 @@
+## How to calculate a range of variability approach ##
+
+
+#Summarize IHA variables and get +/- 1 SD from the mean for all variables
+```{r}
+
+library(psych)
+IHA_predam_summary <- describe(IHA_output_predam) %>%
+  mutate(mean_plus_sd = mean + sd,
+         mean_minus_sd = mean - sd)  
+
+```
+
+
+```{r}
+
+
+```
+
+
+```{r}
+
+
+```
+
+
+```{r}
+```
+
