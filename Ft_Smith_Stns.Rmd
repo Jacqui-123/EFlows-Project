@@ -6,12 +6,39 @@ library(png)
 library(reticulate)
 library(IHA)
 library(tidyverse)
+library(dplyr)
 library(tidyhydat)
 library(zoo)
 library(lubridate)
 library(ggplot2)
 library(sf)
 library(mapview)
+```
+
+Tidying Functions
+```{r}
+
+flow_data_predam_FS <- function(df,Date, Value) {
+library(dplyr)
+df <- df %>%
+  select(Date, Value) %>%
+  na.omit()%>%
+  filter(Date < "1966-10-01" & Date >= "1959-10-01") %>% 
+  mutate(Date = format(Date,"%d-%m-%Y"))
+  return(df)
+}
+
+
+flow_data_postdam <- function(df,Date, Value) {
+library(dplyr)
+df <- df %>%
+  select(Date, Value) %>%
+  na.omit() %>%
+  filter(Date >= "1968-10-01" & Date < "1991-10-01") %>%
+  mutate(Date = format(Date,"%d-%m-%Y"))
+  return(df)
+}
+
 
 
 ```
@@ -26,7 +53,7 @@ Fort_Smith_Flows <- tidyhydat::hy_daily_flows(station_number = "07NB001")
 latlong_07NB001 <- hy_stations(station_number= "07NB001" ) %>% select(LATITUDE, LONGITUDE)
 ```
 
-#Graph the data
+#Map the station
 ```{r}
 sdf <- st_as_sf(latlong_07NB001, coords = c("LONGITUDE", "LATITUDE"),  crs = 4326)
 mapview(sdf, map.types = "CartoDB.Positron")
@@ -37,14 +64,14 @@ mapview(sdf, map.types = "CartoDB.Positron")
 #Separate the data into pre and post dam stations 
 ```{r}
 
-FL_FS_predam <- flow_data_predam(Fort_Smith_Flows) 
+FL_FS_predam <- flow_data_predam_FS(Fort_Smith_Flows) 
 
 FL_FS_postdam <- flow_data_postdam(Fort_Smith_Flows)
 
 ```
 
-##IHA ANALYSES ##
-#Predam Period 1953-1966## 
+IHA ANALYSES
+Predam Period 1953-1966
 
 ```{r}
 
@@ -125,28 +152,24 @@ IHA_both <- rbind(IHA_output_predam, IHA_output_postdam) %>%
 
 ```
 
+#Graphing the IHA Variables 
 
-#Graphing Reversals - Pre and post-dam periods
 ```{r}
-ggplot(data = IHA_both, aes(x =Year, y = Reversals, group = 1) ) +
+
+dontgraph <- c("Year", "Time_Period")
+
+for (col in names(IHA_both)[!names(IHA_both) %in% dontgraph]) {
+  print(ggplot(data = IHA_both, aes(x = Year, y = IHA_both[,col], group = 1 )) +
           geom_line(aes(colour = Time_Period) ) +
       geom_point(aes(colour = Time_Period)) +
-  ggtitle( "07NB001 \nReversals") +
+  ggtitle(col)  +
+    ylab(col) +
   theme_bw() +
     theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
     theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
-  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) 
- 
-  
-```
-
-#Graphing 
-
-```{r}
-
-
-
+  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) ) 
+  }
 
 ```
 
@@ -155,14 +178,13 @@ ggplot(data = IHA_both, aes(x =Year, y = Reversals, group = 1) ) +
 
 
 
-
-
-
-
-
 ```
 
 
 ```{r}
+
+
+
+
 ```
 
