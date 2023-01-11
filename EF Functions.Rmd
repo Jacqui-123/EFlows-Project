@@ -73,7 +73,7 @@ library(dplyr)
 df <- df %>%
   select(Date, Value) %>%
   na.omit()%>%
-  filter(Date < "1967-01-01" & Date > "1947-01-01") %>%
+  filter(Date < "1966-10-01" & Date > "1947-10-01") %>%
   mutate(Date = format(Date,"%d-%m-%Y"))
   return(df)
 }
@@ -89,15 +89,15 @@ library(dplyr)
 df <- df %>%
   select(Date, Value) %>%
   na.omit() %>%
-  filter(Date > "1969-01-01" & Date < "1990-01-01") %>%
-    mutate(Date = format(Date,"%d-%m-%Y"))
+  filter(Date >= "1968-10-01" & Date < "1991-10-01") %>%
+  mutate(Date = format(Date,"%d-%m-%Y"))
   return(df)
 }
 
 ```
 
 5) Find out if there are missing years in the data set. Will return "false" if there are no missing years, or a df of missing years. Needs to be in the tidyhydat format of year-month-day, so use before run in function 3, 4 (Stations_post_Bennett etc).
-#not sure if missing years are okay or not in IHA calcs## 
+
 ```{r} 
 yrs_missing <- function(df, Date) {
 years <- format(df$Date, "%Y")
@@ -107,7 +107,7 @@ missing_years <- setdiff(all_years, unique_years)
 
 View(missing_years) #should be zero
 any(missing_years) #says if there is anything in the list
-print(missing_years())
+print(missing_years)
 }
 
 ```
