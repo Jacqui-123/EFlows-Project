@@ -1,10 +1,11 @@
 ---
-title: "R Notebook"
+title: "Code to Save"
 output: html_notebook
 ---
 
+##Code snippets for use in the WBNP EF project##
 
-Getting a list of data frames using station metadata:
+#How to get a list of data frames of station metadata:
 ```{r}
 
 #metadata subset - list of df
@@ -16,9 +17,17 @@ stations_subset_metadata[[st]] <- data.frame(data)
 
 ```
 
+#Same thing but to get daily flows in a list of df.
+```{r}
 
+dfList <- list()
+for (st in stations_all) {data <- tidyhydat::hy_daily(station_number = (st))
+dfList[[st]] <- data.frame(data)
+}
 
-##HOW TO MAKE STATION NUMBERS INTO A LIST - WHILE REMOVING NAS
+```
+
+##Take station metadata and make the station numbers into a list so they can be used int he tidyhat package for station number
 
 ```{r}
 
@@ -27,7 +36,6 @@ stations_subset_metadata[[st]] <- data.frame(data)
 #select only the list of pre-dam station numbers
 postdam_stations <- stations_to_analyze %>%
 select(post.dam..1969.1989)
-
 
 #delete rows that are na or blanks
 postdam_stations <- postdam_stations[!(is.na(postdam_stations$post.dam..1969.1989) | postdam_stations$post.dam..1969.1989==""), ]
@@ -38,19 +46,20 @@ as.list(as.character(postdam_stations))
 #use this variable in the tidyhat package for station_number =
 ```
 
+#compare two lists of station numbers to see if any are in common
+This is useful for finding the same pre and post dam stations
 
-##COMPARE TWO LISTS OF STN NUMBERS TO SEE IF ANY ARE IN COMMON
 ```{r}
 
 unique(postdam_stations[postdam_stations %in% predam_stations])
 
 ```
 
-##HOW TO EXTRACT DATA INTO A LIST OF DF USING TRYCATCH SO IT CONTINUES TO EXTRACT DATA EVEN IF STN NUMBER IS NULL
+##Extract data and put into a list of df. This uses trycatch so it will continue to extract data even if a station number is null
 
 ```{r}
 
-#Flow only with trycatch #this worked
+#Flow only with trycatch 
 dfFlow_subset <- list()
 for (st in stations_subset) {data <- tryCatch(tidyhydat::hy_daily_flows(station_number = (st)), error = function(e) NULL)
 if (!is.null(data)){
@@ -68,31 +77,13 @@ for (df in dfFlow_subset) {
   print(unique(df$STATION_NUMBER, df$Parameter))
   print(unique(df$Parameter)) 
 }
-#it worked, outputs only flow parameters
 
 ```
 
-#This is code for getting flow and water level data for all stations and putting it into a list of dataframes. 
-```{r}
-
-dfList <- list()
-for (st in stations_all) {data <- tidyhydat::hy_daily(station_number = (st))
-dfList[[st]] <- data.frame(data)
-}
-
-```
-
-
-7) Goal: list of df with flow_cont, flow_seas, level_cont, level_seas with "B" or "not B"
+## Splitting the list of data frames into two separate lists: ones that have "B' or "not B", which has to do with ice coverage
 
 ```{r}
 
-First separate by B vs not B - see code below for this
-Separate the flow and water level data for the stations that have ice ("open water" data) and do not have ice ("year round" data)
-(cont from step 5)
-
-```{r}
-#waiting to have seas/cont data
 open_water = list()
 year_round = list()
 
@@ -106,10 +97,8 @@ for (df in dfList) {
 
 ```
 
-
- QA/QC checks on the open water and ice data to make sure they are correctly separated
+## QA/QC checks on the above open water and ice data to make sure they are correctly separated
 ```{r}
-#skip this step for now, use metadata for B
 
 for (df in open_water) {
   if ("B" %in% df$Symbol){
@@ -121,23 +110,11 @@ for (df in open_water) {
 #add exception for no df in list
 ```
 
+##Find how many consecutive Nas there are in a row and flag somehow.
 
+Note: this code hasn't been working- so far I have been doing the IHA calculations and seeing which months are missing, then going back and deleting those years
 ```{r}
 
-for (df in open_water) {
-  if ("B" !%in% df$Symbol){
-    print("Open water data are correct")
-  } else {
-    print("Open water data are incorrectly separated, there are stations with Ice")
-  }
-}
-#add exception for no df in list
-
-```
-
-8) Try to find how many consecutive Nas there are in a row and flag somehow
-```{r}
-#use flow only data and level only data
 
 for (df in dfFlow_subset) {
   if (length(is.na(df$Value)) >= 14.0) {
@@ -150,22 +127,7 @@ for (df in dfFlow_subset) {
 #rle(x)$lengths[rle(x)$values]
 ```
 
-##TRYING TO FIND CONSEC NAs
-
-```{r}
-
-consecnas <- function(x, n=14) {
-  y = rle(is.na(x))
-          y$Values <- y$lengths > (n- 0.5) & y$values
-          inverse.rle(y)
-}
-
-mindex <- apply(flow_subset_onelist, 2, consecna)
-
-```
-
-
-
+#Still trying...sad face...
 ```{r}
 flow_subset_onelist[max(with(rle(is.na(x)), lengths[values])), by = Symbol]
 
@@ -173,7 +135,6 @@ flow_subset_onelist[max(with(rle(is.na(x)), lengths[values])), by = Symbol]
 
 
 ```{r}
-#flowsubet one list
 
 is.na.rle <- rle(is.na(flow_subset_onelist[,1]))
 is.na.rle$Values <- is.na.rle$Values & is.na.rle$lengths >= 14
@@ -183,6 +144,7 @@ flow_subset_onelist[!inverse.rle(is.na.rle),]
 
 ```
 
+Tryingt to make two lists, one with Nas >14, one with <14
 
 ```{r}
 
@@ -201,43 +163,4 @@ dfLevel_subset <- lapply(dfLevel_subset, find_consec_nas)
 ```
 
 
-
-
-```{r}
-dfList <- list()
-for (st in stations_all) {data <- tidyhydat::hy_daily(station_number = (st))
-dfList[[st]] <- data.frame(data)
-}
-
-```
-
-
-```{r}
-
-open_water = list()
-year_round = list()
-
-for (df in dfList) {
-  if("B" %in% df$Symbol) {
-    open_water = append(open_water, df)
-  } else {
-    year_round = append(year_round, df)
-  }  }
-
-
-```
-
-```{r}
-
-
-```
-
-
-```
-
-
-```{r}
-
-```
-```
 
