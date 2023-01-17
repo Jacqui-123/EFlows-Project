@@ -1,0 +1,283 @@
+
+## Fort Smith Indicators of Hydrologic Alteration
+
+This is an example of the data collection, manipulation, analysis and graphing for IHA variables for a station on the Slave River.
+
+Indicators of Hydrologic Alteration (IHA) variables are a series of ecologically relevant calculations that can be used to understand changes in river hydrology over time.
+
+This data is from the Water Survey of Canada database, and has historical and current hydrometric data from hundreds of stations across Canada. 
+
+Here we have tidied, cleaned, calculated IHA variables, and graphed a few of them to show hydrometric variables before and after the installation of the Bennett Dam. 
+
+
+
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+#install.packages("tidyhydat")
+#install.packages("IHA")
+#install.packages("Rtools")
+#install.packages("IHA", repos="http://R-Forge.R-project.org")
+#install.packages("plyr")
+#install.packages("caTools")
+#install.packages("tidyverse")
+#install.packages("zoo")
+#install.packages("lubridate")
+#install.packages("png")
+#install.packages("reticulate")
+#install.packages("miniconda")
+#install.packages("gridExtra")
+```
+
+
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+library(tidyhydat)
+library(IHA)
+library(png)
+library(dplyr)
+library(tidyverse)
+library(reticulate)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+library(sf)
+library(mapview)
+library(gridExtra)
+```
+
+
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+#run this once
+#download_hydat()
+```
+
+```{r, echo=FALSE}
+flow_data_predam_FS <- function(df,Date, Value) {
+library(dplyr)
+df <- df %>%
+  select(Date, Value) %>%
+  na.omit()%>%
+  filter(Date < "1966-10-01" & Date >= "1959-10-01") %>% 
+  mutate(Date = format(Date,"%d-%m-%Y"))
+  return(df)
+}
+
+flow_data_postdam <- function(df,Date, Value) {
+library(dplyr)
+df <- df %>%
+  select(Date, Value) %>%
+  na.omit() %>%
+  filter(Date >= "1968-10-01" & Date < "1991-10-01") %>%
+  mutate(Date = format(Date,"%d-%m-%Y"))
+  return(df)
+}
+```
+
+
+```{r, echo=FALSE}
+Fort_Smith_Flows <- tidyhydat::hy_daily_flows(station_number = "07NB001")
+```
+
+
+```{r, echo=FALSE}
+latlong_07NB001 <- hy_stations(station_number= "07NB001" ) %>% select(LATITUDE, LONGITUDE)
+```
+
+
+#### Map of Station 07NB001 
+
+We chose this station because it's near Fort Smith along the Slave River.
+```{r, echo=FALSE}
+sdf <- st_as_sf(latlong_07NB001, coords = c("LONGITUDE", "LATITUDE"),  crs = 4326)
+mapview(sdf, map.types = "CartoDB.Positron")
+```
+
+
+```{r, echo=FALSE}
+FL_FS_predam <- flow_data_predam_FS(Fort_Smith_Flows) 
+
+FL_FS_postdam <- flow_data_postdam(Fort_Smith_Flows)
+```
+
+
+```{r, echo=FALSE}
+
+## Convert data to zoo object to prep for IHA analyses
+flow_data <- zoo(FL_FS_predam$Value, order.by = as.Date(as.character(FL_FS_predam$Date), format = "%d-%m-%Y"))
+
+## Run IHA analyses
+group1_output <- group1(flow_data, year = "water", FUN = median)
+group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
+group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
+group4_output <- group4(flow_data, year = "water")
+group5_output <- group5(flow_data, year = "water")
+
+## Convert outputs
+group1_output <- as.data.frame(group1_output)
+group2_output <- group2_output[,-1]
+group3_output <- as.data.frame(group3_output)
+group4_output <- as.data.frame(group4_output)
+group5_output <- as.data.frame(group5_output)
+
+#deleting last years because it has an extra year not in the data
+group1_output <- group1_output[-15,]
+group2_output <- group2_output[-15,]
+group3_output <- group3_output[-15,]
+group4_output <- group4_output[-15,]
+group5_output <- group5_output[-15,]
+
+## Create output dataframe 
+IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
+
+library(tibble)
+IHA_output_predam <- tibble::rownames_to_column(IHA_output, "Year") %>%
+  add_row(Year = c("1968", "1967") )%>%
+  add_column(Time_Period = "Pre Dam" )
+
+```
+
+
+```{r echo=FALSE}
+## Convert data to zoo object to prep for IHA analyses
+flow_data <- zoo(FL_FS_postdam$Value, order.by = as.Date(as.character(FL_FS_postdam$Date), format = "%d-%m-%Y"))
+
+## Run IHA analyses
+group1_output <- group1(flow_data, year = "water", FUN = median)
+group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
+group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
+group4_output <- group4(flow_data, year = "water")
+group5_output <- group5(flow_data, year = "water")
+
+## Convert outputs
+group1_output <- as.data.frame(group1_output)
+group2_output <- group2_output[,-1]
+group3_output <- as.data.frame(group3_output)
+group4_output <- as.data.frame(group4_output)
+group5_output <- as.data.frame(group5_output)
+
+## Create output dataframe 
+IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
+
+library(tibble)
+IHA_output_postdam <- tibble::rownames_to_column(IHA_output, "Year") %>%
+  add_column(Time_Period = "Post Dam" )
+```
+
+#### IHA ANALYSES 
+To calculate the IHA variables, we used the IHA package from the Nature Conservancy.
+
+This is what some of the output variables look like: 
+
+```{r, echo=FALSE}
+IHA_both <- rbind(IHA_output_predam, IHA_output_postdam) %>%
+  add_row(Year = c("1968", "1967") ) 
+head(IHA_both, 2)
+
+```
+
+
+
+#### Flow Reversals, pre and post dam
+
+All other IHA variables can be graphed this way.
+
+```{r, warning = FALSE, echo=FALSE}
+
+ggplot(data = IHA_both, aes(x =Year, y = Reversals, group = 1) ) +
+          geom_line(aes(colour = Time_Period) ) +
+      geom_point(aes(colour = Time_Period)) +
+  #ggtitle( "07NB001 \nReversals") +
+  ylab("Number of Reversals")+
+  theme_bw() +
+   theme(plot.title =element_text(size = 10, hjust = .5, face = "bold")) +
+     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) +
+   scale_colour_discrete(na.translate = F)
+  
+```
+
+#### Minimum flows  
+```{r, echo=FALSE}
+
+cols <- c("orange", "light blue")
+
+IHA_both %>% 
+  na.omit() %>%
+  select('Year', '1 Day Min', '3 Day Min', '7 Day Min', '30 Day Min', '90 Day Min', 'Time_Period') %>%
+  pivot_longer(., cols = c('1 Day Min', '3 Day Min', '7 Day Min','30 Day Min', '90 Day Min'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period), levels = c('1 Day Min', '3 Day Min', '7 Day Min','30 Day Min' , '90 Day Min')) +
+facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+  stat_boxplot(geom = "errorbar", width = 0.25) + 
+  geom_boxplot() + 
+scale_x_discrete(limits = c('1 Day Min', '3 Day Min', '7 Day Min','30 Day Min', '90 Day Min')) +
+  scale_fill_manual(values = cols) +  # Fill colors
+#  geom_point() +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+       theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+ # scale_fill_manual(values = c("orange","light blue"), 
+  #                 labels = c("Pre Dam", "Post Dam")) +
+  xlab("") +
+  ylab("Flow") 
+```
+
+#### Maximum flows  
+```{r, echo=FALSE}
+
+cols <- c("orange", "light blue")
+
+IHA_both %>% 
+  na.omit() %>%
+  select('Year', '1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max' , '90 Day Max','Time_Period') %>%
+  pivot_longer(., cols = c('1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max', '90 Day Max'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
+facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+  stat_boxplot(geom = "errorbar", width = 0.25) + 
+  geom_boxplot() + 
+scale_x_discrete(limits = c('1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max' , '90 Day Max')) +
+  scale_fill_manual(values = cols) +  # Fill colors
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+ # scale_fill_manual(values = c("orange","light blue"), 
+  #                  labels = c("Pre Dam", "Post Dam")) +
+  xlab("") +
+  ylab("Flow") 
+
+```
+
+
+#### Monthly flows
+```{r, echo=FALSE}
+
+col <- c("light blue", "orange")
+
+IHA_both %>% 
+  na.omit() %>%
+  select('Year', 'October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September', 'Time_Period') %>%
+  pivot_longer(., cols = c('October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
+  facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+  stat_boxplot(geom = "errorbar", width = 0.25) + 
+  geom_boxplot() + 
+scale_x_discrete(limits = c('October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September')) +
+  scale_fill_manual(values = cols) +  # Fill colors
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+    aes(x = fct_inorder(Var)) +
+  xlab("Month") +
+  ylab("Flow") 
+ 
+```
