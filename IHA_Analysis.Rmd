@@ -1,19 +1,14 @@
 
 
-##IHA CALCULATIONS ##
+##IHA CALCULATIONS 
+
+Script developed by Wendy Monk
 
 ```{r}
 library(IHA)
 library(zoo)
 library(lubridate)
 library(dplyr)
-
-```
-
-
-```{r}
-
-
 
 ```
 
