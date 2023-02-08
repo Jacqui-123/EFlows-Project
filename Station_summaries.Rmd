@@ -1,0 +1,105 @@
+
+## Stations Meta Data Graphing
+
+Here we have tidied, cleaned and graphed the data availability for all stations within the PAD, broken down by watershed, sorted from upstream to downstream and dividided by data type (water level and flow).
+
+Import libraries
+```{r}
+
+library(png)
+library(reticulate)
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+#library(purrr)
+
+```
+
+
+```{r}
+
+Stations_metadata_YEAR <- Stations_metadata_onelist %>%
+  dplyr::select(-c(MEASUREMENT)) %>%
+ dplyr::filter(DATA_TYPE == "Flow" | DATA_TYPE == "Water Level") %>%
+tidyr::unite("Unique_Id", c("STATION_NUMBER", "OPERATION", "DATA_TYPE" ), sep = "_", remove = FALSE ) %>%
+dplyr::mutate(Year_from = as.integer(Year_from), Year_to = as.integer(Year_to)) %>%
+dplyr::mutate(year = map2(Year_from, Year_to, ~seq(.x, .y), .id = "year")) %>%
+ tidyr::unnest(cols = c(year))
+
+```
+
+
+```{r, fig.height= 6, fig.width= 6}
+
+
+Stations_metadata_YEAR %>%
+  mutate(year = as.factor(year)) %>%
+ slice(0:1500) %>%
+  ggplot(aes(x = year, y = STATION_NUMBER)) +
+  geom_tile(aes(fill = DATA_TYPE), colour = "white", lwd = 0.5, linetype = 1) +
+   # facet_wrap(~group, ncol = 1, scales = "free_x")
+  theme_bw() +
+    scale_y_discrete(limits=rev)+
+ # scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 5)) +
+  theme(axis.text.y =  element_text(size = 6)) +
+    theme(legend.position = 'none')+
+  ylab('')
+  
+```
+
+```{r, fig.height= 6, fig.width= 8}
+
+
+Stations_metadata_YEAR %>%
+  mutate(year = as.factor(year)) %>%
+ slice(1500:3200) %>%
+  ggplot(aes(x = year, y = STATION_NUMBER)) +
+  geom_tile(aes(fill = DATA_TYPE), colour = "white", lwd = 0.5, linetype = 1) +
+   # facet_wrap(~group, ncol = 1, scales = "free_x")
+  theme_bw() +
+    scale_y_discrete(limits=rev)+
+ # scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 5.5, face = 'bold')) +
+  theme(axis.text.y =  element_text(size = 6)) +
+    theme(legend.position = 'none') +
+  ylab('')
+
+
+  
+
+```
+
+```{r, fig.height= 7, fig.width= 6}
+
+
+
+df$group <- as.numeric(cut(df$ID, 4))
+
+ggplot(df, aes(x = factor(ID), y = A)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  xlab("ID") +
+  facet_wrap(~group, ncol = 1, scales = "free_x")
+
+
+```
+
+
+```{r}
+
+
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
