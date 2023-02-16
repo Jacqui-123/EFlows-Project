@@ -14,13 +14,12 @@ library(tidyhydat)
 library(zoo)
 library(lubridate)
 library(ggplot2)
-#library(purrr)
 
 ```
 
 
-First make a df of all flows for all stations 
 ```{r}
+#1) Dataframe of all daily flow for all stations 
 
 ALL_FLOWS <- tidyhydat::hy_daily_flows(station_number = c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA008", "07AA009", "07AA010", "07AB002", "07AC001", "07AC002", "07AC003", "07AC004", "07AC005", "07AC006", "07AC007", "07AC008", "07AD001", "07AD002", "07AD003", "07AD004", "07AD005", "07AD006", "07AD007", "07AD008", "07AD009", "07AD010", "07AE001", "07AE002", "07AE003", "07AF001", "07AF002", "07AF003", "07AF004", "07AF005", "07AF008", "07AF009", "07AF010", "07AF011", "07AF012", "07AF013", "07AF014", "07AF015", "07AF016", "07AF906", "07AF907", 
               "07AF909", "07AF910", "07AG001", "07AG002", "07AG003", "07AG004", "07AG005", "07AG006", "07AG007", "07AG008", "07AH001", "07AH002", "07AH003", "07BA001", "07BA002", "07BA003", "07BB001", "07BB002", "07BB003", "07BB004", "07BB005", "07BB006", "07BB007", "07BB008", "07BB009", "07BB010", "07BB011", "07BB012", "07BB013", "07BB014", "07BB903", "07BB914", "07BC001", "07BC002", "07BC003", "07BC004", "07BC005", "07BC006", "07BC007", "07BE001", "07BE002", "07BE003", "07BE004", "07BF001", "07BF002", "07BF004", 
@@ -35,22 +34,11 @@ ALL_FLOWS <- tidyhydat::hy_daily_flows(station_number = c("07AA001", "07AA002", 
 
 ```
 
-Graph a tile plot, and shade/fill by what percent of the year each station has. 
-```{r}
 
-ALL_FLOWS <- ALL_FLOWS %>%
-group_by(STATION_NUMBER) %>%
-  #make a complete set of days for each year 
-  complete(Date = seq.Date(as.Date("1912/1/1"), as.Date("2020/12/31"), by="day")) %>%
-  #make a separate column for year
-  mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y"))
+```{r, echo = FALSE, include= FALSE}
+#Test cleaning code on a subset of stations - this works 
 
-```
-
-
-```{r}
-
-test_flows_daily <- tidyhydat::hy_daily_flows(station_number =  c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA008", "07AA009", "07AA010", "07AB002", "07AC001", "07AC002"))
+test_flows_daily <- tidyhydat::hy_daily_flows(station_number =  c("07AF909", "07AF910", "07AG001", "07AG002", "07AG003", "07AG004", "07AG005", "07AG006", "07AG007", "07AG008", "07AH001", "07AH002", "07AH003", "07BA001", "07BA002", "07BA003", "07BB001", "07BB002", "07BB003", "07BB004", "07BB005", "07BB006", "07BB007", "07BB008", "07BB009", "07BB010", "07BB011", "07BB012", "07BB013", "07BB014", "07BB903", "07BB914"))
 
 test_flows_daily <- test_flows_daily %>%
 group_by(STATION_NUMBER) %>%
@@ -68,16 +56,17 @@ test_flows_daily_test <- test_flows_daily %>%
   rename('Number_values' = "FALSE",
          "Number_NAs" = "TRUE" )  %>%
   select(-c(Number_NAs)) %>%
-  na.omit(Number_values)
-
+  #na.omit(Number_values) %>%
+ mutate("Watershed" = str_extract(STATION_NUMBER, ".{2}(.)") )%>%
+mutate_if(is.numeric, ~replace(., is.na(.), 0))
 
 ```
 
-
-Graphing test - this works and looks good 
-```{r}
+```{r, echo = FALSE, include = FALSE}
+#Graphing test - this works and looks good 
 
 test_flows_daily_test %>%
+  filter(Watershed == "07A") %>%
  ggplot(aes(x = Year, y = STATION_NUMBER, fill = Number_values)) +
   geom_tile(colour = "white", lwd = 0.5, linetype = 1) +
   theme_bw() +
@@ -90,17 +79,49 @@ test_flows_daily_test %>%
     theme(legend.position = 'none') +
   ylab('') +
   scale_fill_gradientn(colours = hcl.colors(5, palette = "Blues", rev = TRUE) )
-  
  
 ```
 
 
-Make a function to create tile plots 
+```{r, echo = FALSE, include = FALSE}
 
-```{r}
+ALL_FLOWS_y <- ALL_FLOWS %>%
+group_by(STATION_NUMBER) %>%
+  #make a complete set of days for each year 
+  complete(Date = seq.Date(as.Date("1912/1/1"), as.Date("2020/12/31"), by="day")) %>%
+  #make a separate column for year
+  mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y"))
 
-tileplot <- function(data, x, y, fill) {
-  p <- ggplot(data, aes({{x}}, {{y}},fill = {{fill}} )) +
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+
+
+ALL_FLOWS <- ALL_FLOWS_y %>%
+  group_by(STATION_NUMBER, Year) %>%
+  count(is.na(Value)) %>%
+  rename("Is_NA" = "is.na(Value)")  %>%
+  pivot_wider(names_from = Is_NA, values_from = n) %>%
+  rename('Number_values' = "FALSE",
+         "Number_NAs" = "TRUE" )  %>%
+  select(-c(Number_NAs)) %>%
+mutate("Watershed" = str_extract(STATION_NUMBER, ".{2}(.)") ) %>%
+mutate_if(is.numeric, ~replace(., is.na(.), 0))
+
+#length(unique(ALL_FLOWS$STATION_NUMBER))
+
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+
+#Function to create tile plots 
+
+tileplot <- function(data, x, y, fill, z) {
+  p <- data %>%
+    filter(Watershed == z) %>%
+    ggplot(aes({{x}}, {{y}},fill = {{fill}} )) +
   geom_tile( colour = "white", lwd = 0.5, linetype = 1) +
   theme_bw() +
     scale_y_discrete(limits=rev)+
@@ -109,78 +130,164 @@ tileplot <- function(data, x, y, fill) {
     scale_x_discrete(breaks = seq(1912, 2022, 2)) +
     theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 7, face = 'bold')) +
   theme(axis.text.y =  element_text(size = 6)) +
-        theme(legend.position = 'none') +
+       # theme(legend.position = 'none') +
     ylab('') +
-  scale_fill_gradientn(colours = hcl.colors(5, palette = "Blues", rev = TRUE) )
-    #labs(fill = "Number of Days \n in each year") 
+  scale_fill_gradientn(colours = hcl.colors(5, palette = "Blues3", rev = TRUE) ) +
+    labs(fill = "Number of Days \n in each year") 
     #labs(title = {{title}}) +
     print(p)
 
 }
 
 
-tileplot(test_flows_daily_test, Year, STATION_NUMBER, Number_values )
+```
 
+
+##Tile Plots of flow data availability for each watershed: 
+"07A" "07B" "07C" "07D" "07E" "07F" "07G" "07H" "07J" "07K" "07L" "07M" "07N" "07P" "07Q"
+
+```{r, fig.height = 5.0}
+
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07A' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07B' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07C' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07D' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07E' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07F' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07G' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07H' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07J' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07K' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07L' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07M' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07N' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07P' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07Q' )
+
+```
+
+
+
+```{r, echo = FALSE, include = FALSE}
+
+ALL_LEVELS <- tidyhydat::hy_daily_levels(station_number = c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA008", "07AA009", "07AA010", "07AB002", "07AC001", "07AC002", "07AC003", "07AC004", "07AC005", "07AC006", "07AC007", "07AC008", "07AD001", "07AD002", "07AD003", "07AD004", "07AD005", "07AD006", "07AD007", "07AD008", "07AD009", "07AD010", "07AE001", "07AE002", "07AE003", "07AF001", "07AF002", "07AF003", "07AF004", "07AF005", "07AF008", "07AF009", "07AF010", "07AF011", "07AF012", "07AF013", "07AF014", "07AF015", "07AF016", "07AF906", "07AF907", 
+              "07AF909", "07AF910", "07AG001", "07AG002", "07AG003", "07AG004", "07AG005", "07AG006", "07AG007", "07AG008", "07AH001", "07AH002", "07AH003", "07BA001", "07BA002", "07BA003", "07BB001", "07BB002", "07BB003", "07BB004", "07BB005", "07BB006", "07BB007", "07BB008", "07BB009", "07BB010", "07BB011", "07BB012", "07BB013", "07BB014", "07BB903", "07BB914", "07BC001", "07BC002", "07BC003", "07BC004", "07BC005", "07BC006", "07BC007", "07BE001", "07BE002", "07BE003", "07BE004", "07BF001", "07BF002", "07BF004", 
+              "07BF006", "07BF007", "07BF008", "07BF009", "07BF010", "07BF905", "07BG004", "07BH001", "07BH003", "07BJ001", "07BJ002", "07BJ003", "07BJ004", "07BJ005", "07BJ006", "07BK001", "07BK002", "07BK003", "07BK004", "07BK005", "07BK006", "07BK007", "07BK008", "07BK009", "07BK010", "07BK012", "07CA001", "07CA002", "07CA003", "07CA004", "07CA005", "07CA006", "07CA008", "07CA010", "07CA011", "07CA012", "07CA013", "07CA901", "07CB001", "07CB002", "07CC001", "07CC002", "07CD001", "07CD002", 
+              "07CD003", "07CD004", "07CD005", "07CD006", "07CD007", "07CD008", "07CD009", "07CE001", "07CE002", "07CE003", "07CE004", "07CE005", "07CE006", "07CE007", "07CE008", "07CE010", "07CE013", "07CE906", "07DA001", "07DA002", "07DA003", "07DA004", "07DA005", "07DA006", "07DA007", "07DA008", "07DA009", "07DA010", "07DA011", "07DA012", "07DA013", "07DA014", "07DA015", "07DA016", "07DA017", "07DA018", "07DA019", "07DA020", "07DA021", "07DA022", "07DA023", "07DA024", "07DA025", "07DA026", "07DA027", "07DA028", 
+              "07DA029", "07DA030", "07DA032", "07DA033", "07DA034", "07DA035", "07DA037", "07DA038", "07DA039", "07DA040", "07DA041", "07DA042", "07DA044", "07DA045", "07DB001", "07DB002", "07DB003", "07DB004", "07DB005", "07DB006", "07DC001", "07DC002", "07DC003", "07DC004", "07DD001", "07DD002", "07DD003", "07DD004", "07DD005", "07DD006", "07DD007", "07DD008", "07DD009", "07DD010", "07DD011", "07EA001", "07EA002", "07EA004", "07EA005", "07EA006", "07EA007", "07EB001", "07EB002", "07EC001", "07EC002", "07EC003", 
+              "07EC004", "07ED001", "07ED002", "07ED003", "07EE002", "07EE003", "07EE004", "07EE005", "07EE007", "07EE008", "07EE009", "07EE010", "07EE011", "07EF001", "07EF002", "07EF003", "07EF004", "07FA001", "07FA003", "07FA004", "07FA005", "07FA006", "07FA007", "07FB001", "07FB002", "07FB003", "07FB004", "07FB005", "07FB006", "07FB007", "07FB008", "07FB009", "07FB010", "07FB011", "07FC001", "07FC002", "07FC003", "07FC004", "07FC005", "07FC006", "07FC007", "07FD001", "07FD002", "07FD003", "07FD004", "07FD005", 
+              "07FD006", "07FD007", "07FD008", "07FD009", "07FD010", "07FD011", "07FD012", "07FD013", "07FD014", "07FD015", "07FD016", "07FD017", "07FD019", "07FD020", "07FD901", "07FD908", "07FD910", "07FD912", "07FD913", "07FD921", "07FD934", "07GA001", "07GA002", "07GB001", "07GB002", "07GB003", "07GC001", "07GC002", "07GD001", "07GD002", "07GD003", "07GD004", "07GE001", "07GE002", "07GE003", "07GE004", "07GE005", "07GE006", "07GE007", "07GF001", "07GF002", "07GF003", "07GF004", "07GF005", "07GF006", "07GF007", 
+              "07GF008", "07GG001", "07GG002", "07GG003", "07GH001", "07GH002", "07GH003", "07GH004", "07GH005", "07GH906", "07GJ001", "07GJ004", "07GJ005", "07HA001", "07HA002", "07HA003", "07HA005", "07HA902", "07HA914", "07HB001", "07HB002", "07HC001", "07HC002", "07HC907", "07HD001", "07HF001", "07HF002", "07JA001", "07JA002", "07JA003", "07JB001", "07JB002", "07JC001", "07JC002", "07JC003", "07JD001", "07JD002", "07JD003", "07JD004", "07JF002", "07JF003", "07JF004", "07JF005", "07KA002", "07KC001", "07KC003", 
+              "07KC004", "07KC005", "07KE001", "07KF001", "07KF002", "07KF003", "07KF004", "07KF005", "07KF006", "07KF007", "07KF008", "07KF010", "07KF013", "07KF014", "07KF015", "07LB001", "07LB002", "07LC002", "07LC003", "07LD001", "07LD002", "07LD003", "07LE001", "07LE002", "07LE003", "07LE004", "07MA003", "07MA004", "07MA005", "07MB001", "07MC001", "07MC002", "07MC003", "07MD001", "07MD002", "07NA001", "07NA002", "07NA003", "07NA004", "07NA005", "07NA007", "07NA008", "07NB001", "07NB002", "07NB003", "07NB004", 
+              "07NB005", "07NB006", "07NB007", "07NB008", "07NC001", "07NC002", "07NC003", "07NC004", "07NC005", "07NC006", "07NC007", "07NC008", "07NC009", "07PB002", "07QC008") )
+
+
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+
+ALL_LEVELS_y <- ALL_LEVELS %>%
+group_by(STATION_NUMBER) %>%
+  #make a complete set of days for each year 
+  complete(Date = seq.Date(as.Date("1912/1/1"), as.Date("2020/12/31"), by="day")) %>%
+  #make a separate column for year
+  mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y"))
+
+ALL_LEVELS <- ALL_LEVELS_y %>%
+  group_by(STATION_NUMBER, Year) %>%
+  count(is.na(Value)) %>%
+  rename("Is_NA" = "is.na(Value)")  %>%
+  pivot_wider(names_from = Is_NA, values_from = n) %>%
+  rename('Number_values' = "FALSE",
+         "Number_NAs" = "TRUE" )  %>%
+  select(-c(Number_NAs)) %>%
+ mutate("Watershed" = str_extract(STATION_NUMBER, ".{2}(.)") ) %>%
+mutate_if(is.numeric, ~replace(., is.na(.), 0))
+
+
+length(unique(ALL_LEVELS$STATION_NUMBER))
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+
+tileplot <- function(data, x, y, fill, z) {
+  p <- data %>%
+    filter(Watershed == z) %>%
+    ggplot(aes({{x}}, {{y}},fill = {{fill}} )) +
+  geom_tile( colour = "white", lwd = 0.5, linetype = 1) +
+  theme_bw() +
+    scale_y_discrete(limits=rev)+
+ #scale_x_discrete(guide = guide_axis(n.dodge = 2)) + #dodge every 2
+     theme(axis.text.y =  element_text( size = 7, face = 'bold')) +
+    scale_x_discrete(breaks = seq(1912, 2022, 2)) +
+    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 7, face = 'bold')) +
+  theme(axis.text.y =  element_text(size = 6)) +
+       # theme(legend.position = 'none') +
+    ylab('') +
+  scale_fill_gradientn(colours = hcl.colors(5, palette = "Purples", rev = TRUE) ) +
+    labs(fill = "Number of Days \n in each year") 
+    #labs(title = {{title}}) +
+    print(p)
+
+}
+
+```
+
+##Tile Plots of water level data availability for each watershed: 
+"07A" "07B" "07C" "07D" "07E" "07F" "07G" "07H" "07J" "07K" "07L" "07M" "07N" "07P" "07Q"
+
+```{r, fig.height = 5.0}
+
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07A' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07B' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07C' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07D' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07E' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07F' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07G' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07H' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07J' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07K' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07L' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07M' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07N' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07P' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07Q' )
 
 ```
 
 
 ```{r}
-
-
 ```
 
 
-```{r}
-
-
-```
-
-
-```{r}
-
-
-```
-
-
-```{r}
-
-
-```
-
-
-```{r}
-
-
-```
-
-
-```{r}
-
-
-
-```
-
+```{r, echo = FALSE, include = FALSE}
 #keep this, it's useful if need to go back to using metadata to graph- ie just looking at year and not percentage of years
-Create a new column with a year for every single year between the "year_from" and "year_to" columns. 
+#Create a new column with a year for every single year between the "year_from" and "year_to" columns. 
 
-```{r}
-#ignore this, was for when looking at number of years, but need to look at how many total days in a year have data
-Stations_metadata_YEAR <- Stations_metadata_onelist %>%
+Stations_metadata_FLOW <- Stations_metadata_onelist %>%
   dplyr::select(-c(MEASUREMENT)) %>%
- dplyr::filter(DATA_TYPE == "Flow" | DATA_TYPE == "Water Level") %>%
+ dplyr::filter(DATA_TYPE == "Flow" ) %>%
 tidyr::unite("Unique_Id", c("STATION_NUMBER", "OPERATION", "DATA_TYPE" ), sep = "_", remove = FALSE ) %>%
 dplyr::mutate(Year_from = as.integer(Year_from), Year_to = as.integer(Year_to)) %>%
 dplyr::mutate(year = map2(Year_from, Year_to, ~seq(.x, .y), .id = "year")) %>%
  tidyr::unnest(cols = c(year))
 
+length(unique(Stations_metadata_YEAR$STATION_NUMBER))
+
+rm(Stations_metadata_YEAR, Stations_metadata_onelist)
+
 ```
 
 
+
+```{r, echo = FALSE, include=FALSE}
 #from here down likely don't need, but keep for now. 
 
-Calculate the amount of days with values in each year, for each station 
-```{r}
+#Calculate the amount of days with values in each year, for each station 
+
 #this does it all by hand, takes more lines of code
 test_flows_daily_year <- test_flows_daily_year %>%
   group_by(STATION_NUMBER, Year) %>%
@@ -193,8 +300,10 @@ mutate(new_col = sum(is.na(test_flows_daily_year$Value) ) )
   
 ```
 
-Make a date df with one full year of month-day date, including leap years
-```{r}
+```{r, echo = FALSE, include=FALSE}
+
+#Make a date df with one full year of month-day date, including leap years
+
 #maybe don't need this but keep just in case
 df_dates <- as.data.frame(seq(as.Date("1916/1/1"), as.Date("1916/12/31"), "day") ) %>% #with leap year 
 setNames("Date") %>%
@@ -205,8 +314,9 @@ separate( "Date", c("Year", "Month", "Day"), sep = "-", remove = TRUE) %>%
 
 ```
 
-Separate date into a new column of month-day
-```{r}
+```{r, echo = FALSE, include=FALSE}
+#Separate date into a new column of month-day
+
 #maybe don't need this but keep just in case
 test_flows_daily_test <- test_flows_daily %>%
   separate( "Date", c("Year", "Month", "Day"), sep = "-", remove = TRUE) %>%
@@ -214,10 +324,10 @@ test_flows_daily_test <- test_flows_daily %>%
 
 ```
 
+
+```{r, echo = FALSE, include=FALSE}
+
 Instead try to expand for all dates... 
-
-```{r}
-
 
 test_flows_daily_year <-test_flows_daily %>%
   mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y"))
@@ -238,12 +348,10 @@ complete(test_flows_daily_year, Date = full_seq(Date, 1) )
 
 complete(Date = seq.Date(<start_date>, <end_date>, by=<date_unit>))
 
-
-
 ```
 
 
-```{r}
+```{r, echo = FALSE, include=FALSE}
 
 test_flows_daily_year$Date <- as.Date(test_flows_daily_year$Date, format = "%d-%m-%Y" )
 
@@ -260,13 +368,7 @@ test_flows_daily_year_expand %>%
 ```
 
 
-
-```{r}
-
-
-```
-
-```{r}
+```{r, echo = FALSE, include=FALSE}
 
 library(tidyverse)
 
@@ -283,7 +385,7 @@ complete( STATION_NUMBER, Date)
 ```
 
 
-```{r}
+```{r, echo = FALSE, include=FALSE}
 
 
 #this sort of works... 
@@ -307,10 +409,3 @@ df_final <- df_final %>%
 
 
 ```
-
-
-
-```{r}
-
-
-
