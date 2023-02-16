@@ -46,6 +46,54 @@ as.list(as.character(postdam_stations))
 #use this variable in the tidyhat package for station_number =
 ```
 
+Flow metadata, keeping only the stations with 20 years of total data, regardless of if they are c/s/m. 
+Here I subtract the years of operation and add up for each station to get total number of years.
+
+```{r}
+
+#Ended up not using this 
+
+Stations_metadata_flow_20yrsdata <- Stations_metadata_onelist %>%
+  #getting rid of operation type (we don't care if its s/c/m for now)
+select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to,  ) %>%
+  #only flow data
+filter(DATA_TYPE == 'Flow') %>%
+  #keep station numbers together
+group_by(STATION_NUMBER) %>%
+  #make a new column with the max and min dates
+mutate(min_date = min(Year_from),
+            max_date = max(Year_to)) %>%
+  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
+select(STATION_NUMBER, DATA_TYPE, max_date, min_date) %>%
+  #get rid of max date and min date duplicates
+  distinct() %>%
+  #take the diff between max and min date
+mutate(diff = max_date - min_date) %>%
+  #keep only those with greater than or equal to 20 years of data, total (might not be consecutive)
+filter(diff >= 20)  
+  
+View(Stations_metadata_flow_20yrsdata)
+
+#197 flow stations with varying amounts of C,S,M which aren't shown
+
+```
+
+
+```{r}
+Then tidy flow data between 1947-1967 for the full 20 years and make into a list 
+Compare 1947-1967 full stations to the postdam station list to see if there are any potentialities there 
+```{r} 
+
+#make as a list of characters
+as.list(as.character(predam_st_7_stns))
+
+
+unique(postdam_stations[postdam_stations %in% predam_st_7_stns])
+#there are none unfortunately 
+```
+
+```
+
 #compare two lists of station numbers to see if any are in common
 This is useful for finding the same pre and post dam stations
 

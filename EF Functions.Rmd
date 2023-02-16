@@ -27,8 +27,6 @@ select(STATION_NUMBER, DATA_TYPE, min_date, max_date)  %>%
   #get rid of max date and min date duplicates
   distinct()
   return(df)
-
-
 }
 
 ```
@@ -112,19 +110,7 @@ print(missing_years)
 
 ```
 
-```{r}
 
-```
-
-
-```{r}
-
-
-
-```
-
-
-```{r}
 
 
 

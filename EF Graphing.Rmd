@@ -8,12 +8,14 @@ Line graph of one IHA output variable at a time. Coloured by time period (pre/po
 ggplot(data = IHA_both, aes(x =Year, y = Reversals, group = 1) ) +
           geom_line(aes(colour = Time_Period) ) +
       geom_point(aes(colour = Time_Period)) +
-  ggtitle( "07NB001 \nReversals") +
+  ggtitle( "07NB001 \n Reversals") +
   theme_bw() +
     theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
     theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
-  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) 
+  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) +
+  geom_line(data = IHA_predam_summary, y =  Reversals) +
+   scale_colour_discrete(na.translate = F)
   
 
 ```
@@ -23,7 +25,9 @@ Coloured by time period (pre/post dam).
 
 ```{r}
 
-dontgraphme <- c("Year", "Time_Period")
+dontgraphme <- c("Year", "Time_Period", "Zero flow days", '1 Day Min', '3 Day Min', '7 Day Min', '30 Day Min', '90 Day Min', '1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max' , '90 Day Max','October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September')
+
+list_plots <- vector('list', length(cols))
 
 for (col in names(IHA_both)[!names(IHA_both) %in% dontgraphme]) {
   print(ggplot(data = IHA_both, aes(x = Year, y = IHA_both[,col], group = 1 )) +
@@ -35,8 +39,13 @@ for (col in names(IHA_both)[!names(IHA_both) %in% dontgraphme]) {
     theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
     theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
-  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) ) 
-  }
+  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7))+
+       scale_colour_discrete(na.translate = F)) 
+   print(list_plots[col])
+
+}
+
+
 ```
 Boxplots of IHA variables: 
 
@@ -48,7 +57,6 @@ Minimum flow
 ```{r}
 
 boxplot_min <- function(df) {
-
 
 p <-  IHA_both %>% 
   na.omit() %>%
@@ -67,7 +75,7 @@ geom_boxplot() +
   scale_fill_manual(values = c("orange","light blue"), 
                     labels = c("Pre Dam", "Post Dam")) +
   xlab("") +
-  ylab("") 
+  ylab("Flow") 
 
 return(p)
 
@@ -101,7 +109,7 @@ geom_boxplot() +
   scale_fill_manual(values = c("orange","light blue"), 
                     labels = c("Pre Dam", "Post Dam")) +
   xlab("") +
-  ylab("") 
+  ylab("Flow") 
 
 return(p)
 
@@ -124,7 +132,7 @@ p <-  IHA_both %>%
   ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
 facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
 geom_boxplot() +
-  geom_point() +
+  #geom_point() +
   theme_bw() +
     theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
          theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
@@ -133,14 +141,140 @@ geom_boxplot() +
   theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
   scale_fill_manual(values = c("orange","light blue"), 
                     labels = c("Pre Dam", "Post Dam")) +
-  xlab("") +
-  ylab("") +
-  aes(x = fct_inorder(Var)) +
+ aes(x = fct_inorder(Var)) +
+  xlab("Month") +
+  ylab("Flow") 
 
 return(p)
 
 }
 
 ```
+
+## IGNORE THIS### 
+
+Trying ribbons from here down. 
+
+```{r}
+
+
+ 
+```
+
+Trying so hard to get a ribbon behind the boxplots....
+
+```{r}
+#DF of Month, 25%, 50%, 75%
+df <- IHA_output_predam %>%
+  select('October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September') 
+ IQ <- sapply(df, quantile, probs=c(0.25, 0.5, 0.75), na.rm = TRUE)
+IHA_quartiles_predam <- as.data.frame(IQ)
+df1 <- t(IHA_quartiles_predam)
+df2 <- as.data.frame(df1)
+df3 <- rownames_to_column(df2, "Month") 
+
+write.csv(df3, "IQ-predam.csv")
+```
+
+Tidy in excel, make a new df and load back in
+
+```{r}
+
+IQ_pre <- read.csv("IQ-predam-edit.csv")
+
+ IQ_pre %>% 
+  select(Month, Variable, Value) %>%
+ # filter(Variable == "IQ25") %>%
+ggplot(aes(x=Month, y = Value)) +
+  geom_line(aes(group= Variable, colour = Variable)) 
+
+ ggplot(aes(x=Month, y = Value)) +
+  geom_line(aes(x=Month, y = Value, group= Variable, colour = Variable)) 
+
+ 
+
+```
+
+make max/min columns to be able to use with geomribbon
+
+```{r}
+
+maxIQ <-IQ_pre %>%
+  select(Month, Variable, Value)%>%
+  filter(Variable == "IQ75") %>%
+  mutate("max" = Value) %>%
+  select(Month, max)
+  
+minIQ <- IQ_pre %>%
+  select(Month, Variable, Value)%>%
+filter(Variable == "IQ25")%>%
+  mutate("min" = Value) %>%
+  select(Month, min)
+
+maxmin <- inner_join(maxIQ, minIQ, by= "Month") %>%
+  mutate(newcol = c(1,2,3,4,5,6,7,8,9,10,11,12)) %>%
+  select(newcol, max, min, Month)
+  
+
+```
+
+
+```{r}
+p +
+  geom_area(maxIQ, mapping = aes(x= Month, y=Value, fill=Value))
+
+```
+
+
+```{r}
+
+
+ggplot() +
+ # geom_area(maxmin, mapping = aes(x= newcol, y=max)) +
+ # geom_area(maxmin, mapping = aes(x=newcol, y=min))
+  geom_ribbon(data=maxmin, aes(x= newcol, ymin= min, ymax= max, group=1, alpha = .2, fill = "light pink"))
+
+```
+
+
+```{r}
+
+ggplot() +
+    geom_line(data = IQ_pre, aes(x=Month, y = Value, group= Variable, colour = Variable)) 
+
+
+```
+
+
+```{r}
+IHA_output_predam %>% 
+  na.omit() %>%
+  select('Year', 'October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September', 'Time_Period') %>%
+  pivot_longer(., cols = c('October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September'), names_to = "Var", values_to = "Val") %>%
+ggplot(aes(x = Var, 
+           y = Val, 
+           group = Var,
+           color = Var)) +
+  stat_summary(fun.y = "mean", geom = "point") # +
+ # stat_summary(fun.y = "mean", geom = "line") +
+   # stat_summary(fun.data = "mean_se", geom = "errorbar") # adding error bars (standard error)
+```
+
+
+```{r}
+
+ggplot(IHA_output_predam, aes(Time, Value)) + geom_smooth(stat = 'summary', fun.data = function(y) data.frame(ymin = quantile(y, .1), y = mean(y), ymax = quantile(y, .9)))
+
+
+```
+
+
+```{r}
+
+```
+
+
+
+
 
 

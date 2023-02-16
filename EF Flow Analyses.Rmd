@@ -3,6 +3,12 @@ title: "E_Flows_Station_DATA"
 output: html_notebook
 ---
 
+
+Note: This file is somewhat depreciated and we are no longer using this code and method to find pre and post dam stations or any stations for any year, but instead using the tile plots (see station summaries file) to find which stations within certain years. 
+
+See "PART 2- SINGLE STATION WORKFLOW" ~line 230 for the workflow to tidy, calculate IHA variables, and graph one station, or alternatively the finished product in the "FT_Smith_Stns" file
+
+
 1) Install packages 
 
 ```{r}
@@ -39,13 +45,7 @@ library(ggplot2)
 download_hydat()
 ```
 
-
-```{r}
-```
-
-3) Read in the station numbers from Wendy for the Slave River Watershed and get a list of the station numbers
-
-Need to tidy this code- use new github link and load in so that it's a list of characters, then use in tidyhydat for stn numbers
+3) Read in the stations for the Slave River Watershed and get a list of the station numbers
 
 ```{r}
 Slave_River_watershed <-  read_csv( "https://raw.githubusercontent.com/wendyamonk/WBNP_analyses/main/HYDAT_Slave_River_watershed.csv?token=GHSAT0AAAAAAB4LKYXMDYYNQDQGBQ6ITTFQY42MPCA" )
@@ -54,23 +54,13 @@ SLave_River_watershed_Stations <- Slave_River_watershed %>%
 summarise(STATION_NU = paste(STATION_NU,collapse = " , "))
 message(SLave_River_watershed_Stations)
 
-
-
 #select only the station numbers
 predam_stations <- Slave_River_watershed_Stations %>%
 select(station_number)
 
-
-#make as a list of characters
-as.list(as.character(predam_stations))
-
-#use this variable in the tidyhat package for station_number = 
-
-
 ```
 
-Copy the output above and paste it into "stations_all" (need this to be automatized in the future- see code above)
-
+Copy the above output and paste it into "stations_all" 
 ```{r}
 stations_all <- c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA008", "07AA009", "07AA010", "07AB002", "07AC001", "07AC002", "07AC003", "07AC004", "07AC005", "07AC006", "07AC007", "07AC008", "07AD001", "07AD002", "07AD003", "07AD004", "07AD005", "07AD006", "07AD007", "07AD008", "07AD009", "07AD010", "07AE001", "07AE002", "07AE003", "07AF001", "07AF002", "07AF003", "07AF004", "07AF005", "07AF008", "07AF009", "07AF010", "07AF011", "07AF012", "07AF013", "07AF014", "07AF015", "07AF016", "07AF906", "07AF907", 
               "07AF909", "07AF910", "07AG001", "07AG002", "07AG003", "07AG004", "07AG005", "07AG006", "07AG007", "07AG008", "07AH001", "07AH002", "07AH003", "07BA001", "07BA002", "07BA003", "07BB001", "07BB002", "07BB003", "07BB004", "07BB005", "07BB006", "07BB007", "07BB008", "07BB009", "07BB010", "07BB011", "07BB012", "07BB013", "07BB014", "07BB903", "07BB914", "07BC001", "07BC002", "07BC003", "07BC004", "07BC005", "07BC006", "07BC007", "07BE001", "07BE002", "07BE003", "07BE004", "07BF001", "07BF002", "07BF004", 
@@ -85,9 +75,7 @@ stations_all <- c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA00
 
 ```
 
-List of Metadata for all stations:
-#need to add in the characer obj from above for station number
-#with a try-catch otherwise it won't work
+Df of metadata for all stations
 ```{r}
 Stations_metadata_onelist <- hy_stn_data_coll(station_number = c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA008", "07AA009", "07AA010", "07AB002", "07AC001", "07AC002", "07AC003", "07AC004", "07AC005", "07AC006", "07AC007", "07AC008", "07AD001", "07AD002", "07AD003", "07AD004", "07AD005", "07AD006", "07AD007", "07AD008", "07AD009", "07AD010", "07AE001", "07AE002", "07AE003", "07AF001", "07AF002", "07AF003", "07AF004", "07AF005", "07AF008", "07AF009", "07AF010", "07AF011", "07AF012", "07AF013", "07AF014", "07AF015", "07AF016", "07AF906", "07AF907", 
               "07AF909", "07AF910", "07AG001", "07AG002", "07AG003", "07AG004", "07AG005", "07AG006", "07AG007", "07AG008", "07AH001", "07AH002", "07AH003", "07BA001", "07BA002", "07BA003", "07BB001", "07BB002", "07BB003", "07BB004", "07BB005", "07BB006", "07BB007", "07BB008", "07BB009", "07BB010", "07BB011", "07BB012", "07BB013", "07BB014", "07BB903", "07BB914", "07BC001", "07BC002", "07BC003", "07BC004", "07BC005", "07BC006", "07BC007", "07BE001", "07BE002", "07BE003", "07BE004", "07BF001", "07BF002", "07BF004", 
@@ -103,67 +91,6 @@ Stations_metadata_onelist <- hy_stn_data_coll(station_number = c("07AA001", "07A
 ```
 ## FLOW DATA TRIAL AND ERROR -- to get stns to analyze ##
 
-4) Flow metadata, keeping only the stations with 20 years of total data, regardless of if they are c/s/m. 
-Here I subtract the years of operation and add up for each station to get total number of years.
-
-```{r}
-
-#Ended up not using this list but instead use the cleaning code below on all of them - it works.
-
-Stations_metadata_flow_20yrsdata <- Stations_metadata_onelist %>%
-  #getting rid of operation type (we don't care if its s/c/m for now)
-select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to,  ) %>%
-  #only flow data
-filter(DATA_TYPE == 'Flow') %>%
-  #keep station numbers together
-group_by(STATION_NUMBER) %>%
-  #make a new column with the max and min dates
-mutate(min_date = min(Year_from),
-            max_date = max(Year_to)) %>%
-  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
-select(STATION_NUMBER, DATA_TYPE, max_date, min_date) %>%
-  #get rid of max date and min date duplicates
-  distinct() %>%
-  #take the diff between max and min date
-mutate(diff = max_date - min_date) %>%
-  #keep only those with greater than or equal to 20 years of data, total (might not be consecutive)
-filter(diff >= 20)  
-  
-View(Stations_metadata_flow_20yrsdata)
-
-#197 flow stations with varying amounts of C,S,M which aren't shown
-
-```
-
-Use the list of stations (Stations_metadata_onelist) to get flow only and years more than 20 to write to a csv file and make dumbell plots in Python. 
--can tidy this so using the previous object (Stations_metadata_flow_20yrsdata) for this rather than re-tidying below 
-
-```{r}
-
-Stations_metadata_flow <- Stations_metadata_onelist %>%
-select(STATION_NUMBER, DATA_TYPE, OPERATION, Year_from, Year_to ) %>%
-filter(DATA_TYPE == 'Flow') %>%
-mutate(num_years =  Year_to - Year_from) %>%
-group_by(STATION_NUMBER) %>%
-  mutate(total_years = sum(num_years)) %>%
-  filter(total_years >= 20) 
-
-View(Stations_metadata_flow)
-
-#should give about 197 stations total
-#Write to a csv file and make dumbell plots in Python
-#write.csv(Stations_metadata_flow, "Stations_metadata_flow.csv")
-
-```
-
-Dumbbell plots were made in PyCharm using csv file above, and a selection of stations was made. Then get metadata from the subset of stations and tidy to find stations that have full data between 1947-1967. 
-
-```{r} 
-#get stations from the subset of stations
-stations_to_analyze  <- read.csv("E Flows Station Numbers for Analysis.csv")
-
-```
-
 Pre-dam stations- get rid of blanks and make into a list
 
 ```{r} 
@@ -171,7 +98,6 @@ Pre-dam stations- get rid of blanks and make into a list
 #select only the list of pre-dam station numbers
 predam_stations <- stations_to_analyze %>%
 select(pre.dam..1947.1967)
-
 
 #delete rows that are na or blanks
 predam_stations <- predam_stations[!(is.na(predam_stations$pre.dam..1947.1967) | predam_stations$pre.dam..1947.1967==""), ]
@@ -183,63 +109,8 @@ as.list(as.character(predam_stations))
 
 ```
 
-Then go back and re-collect metadata from the predam station subset that was found using dumbell plots
 
-```{r} 
-Stations_metadata_predam_stations <- hy_stn_data_coll(station_number = predam_stations)
-
-```
-
-Then tidy flow data between 1947-1967 for the full 20 years and make into a list 
-
-```{r} 
-Stations_metadata_predam_stations_fl <- Stations_metadata_predam_stations %>%
-select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT, OPERATION ) %>%
-  #only flow data
-filter(DATA_TYPE == 'Flow') %>%
-  #only list years that start before 1967
-filter(Year_from < 1967) %>%
-  #only list years that end after 1940
-filter(Year_to >= 1940)  %>%
-group_by(STATION_NUMBER) %>%
-  #add max and min dates
-mutate(min_date = min(Year_from),
-            max_date = max(Year_to)) %>%
-  #only choose min dates that start before 1950
-filter(min_date <= 1950) %>%
-  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
-select(STATION_NUMBER, DATA_TYPE, max_date, min_date)  %>%
-  #get rid of max date and min date duplicates
-  distinct()
-
-View(Stations_metadata_predam_stations_fl)
-#results in 7 stations of flow predam data 
-
-#Write to a csv file 
-#write.csv(Stations_metadata_predam_stations_fl, "Stations_metadata_predam_stations_fl_max_min_dates.csv")
-
-#then can export into a list 
-
-predam_st_7_stns <- Stations_metadata_predam_stations_fl %>%
-select(STATION_NUMBER)
-
-#make as a list of characters
-as.list(as.character(predam_st_7_stns))
-
-#use this variable in the tidyhat package for "station_number = "
-
-```
-
-Compare 1947-1967 full stations to the postdam station list to see if there are any potentialities there 
-```{r} 
-unique(postdam_stations[postdam_stations %in% predam_st_7_stns])
-#there are none unfortunately 
-```
-
-#1. METHOD SWITCH-
-
-##NOW REALIZING I CAN RUN THE ABOVE CODE ON ALL THE STATIONS AND I DON'T NEED TO USE THE DUMBBELL PLOTS## 
-## WILL DO THIS GOING FORWARDS 
+#this is now a function : "Stations_pre_Bennett" and can run this to find a list of stations for predam years
 
 ```{r}
 
@@ -283,15 +154,10 @@ as.list(as.character(predam_flow_stn))
 
 ##THEN FIND ONES IN FORT SMITH AREA
 
-```{r}
-
-predam_flow_stn 
-
-```
-
-##NEXT WRITE CODE TO FIND POST-DAM STATIONS, NOT USING THE DUMBELL PLOTS, JUST FROM THE FULL LIST 
+##NEXT WRITE CODE TO FIND POST-DAM STATIONS FROM THE FULL LIST #this is a function : "Stations_post_Bennett"
 
 ```{r}
+
 Stations_flow_1969_89 <- Stations_metadata_onelist %>%
 select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT, OPERATION ) %>%
   #only flow data
@@ -323,6 +189,9 @@ View(postdam_flow_stn)
 
 #make as a list of characters
 as.list(as.character(postdam_flow_stn))
+
+
+
 ```
 
 #put non csv stations from above code into a list and compare with the csv list 
@@ -332,37 +201,19 @@ as.list(as.character(postdam_flow_stn))
 Stations_flow_1969_89_noncsv <- Stations_flow_1969_89  %>% 
   select(STATION_NUMBER)
 
-
 Stations_flow_1969_89_noncsv <- Stations_flow_1969_89_noncsv[!(is.na(Stations_flow_1969_89_noncsv$STATION_NUMBER) | Stations_flow_1969_89_noncsv$STATION_NUMBER==""), ]
 
 as.list(as.character(Stations_flow_1969_89_noncsv))
 
 ```
 
+#compare two lists of station numbers to see if any are in common
+This is useful for finding the same pre and post dam stations
 
-#load in the csv of post dam stations and convert to list for comparison
 ```{r}
 
-post_dam_stns_csv <- read.csv("E Flows Station Numbers for Analysis.csv") 
+unique(postdam_stations[postdam_stations %in% predam_stations])
 
-
-post_dam_stns_csv_tidy <- post_dam_stns_csv %>%
-select(post.dam..1969.1989) %>%
-  rename(STATION_NUMBER = post.dam..1969.1989 )
-
-#as.list(as.character(post_dam_stns_csv_tidy))
-View(post_dam_stns_csv_tidy)
-
-```
-
-#NOT SURE WHY THIS WONT WORK
-```{r} 
-unique(Stations_flow_1969_89_noncsv[Stations_flow_1969_89_noncsv %in% post_dam_stns_csv_tidy])
-
-#Stations_flow_1969_89_noncsv %in% post_dam_stns_csv_tidy
-
-
-#unique(postdam_stations[postdam_stations %in% predam_stations])
 ```
 
 #PROCEED WITH COMPARING PRE AND POST DAM STATIONS USING TIDYING METHOD
@@ -378,8 +229,8 @@ unique(postdam_flow_stn[postdam_flow_stn %in% predam_flow_stn])
 
 ```
 
-##2 PART 2## 
-##SINGLE STATION WORKFLOW ##
+
+##PART 2- SINGLE STATION WORKFLOW ##
 #NOW TRY TO TIDY DATA AND GET A FORT SMITH DATA SET
 
 ```{r} 
@@ -387,33 +238,35 @@ Fort_Smith_Flows <- tidyhydat::hy_daily_flows(station_number = "07NB001")
 
 ```
 
-#Select only the date and flow data and omit Nas and set the Dates as date
+#Get a df of predam data 
 
 ```{r} 
-flow_data <- Fort_Smith_Flows %>%
+flow_data_FS <- Fort_Smith_Flows %>%
   select(Date, Value) %>%
   na.omit()
 
-flow_data_predam <- flow_data %>%
+flow_data_predam_FS <- flow_data_FS %>%
   #filter(Date >= 1947-01-01)
   filter(Date < "1967-01-01" & Date > "1947-01-01")
 
 #Make the dates into dates in R
 #as.Date(flow_data$Date)
+
 ```
 
-#Separate into separate data frames (pre and post Bennett dam) based on dates 
+#Get a df of postdam data 
 
 ```{r} 
-flow_data <- Fort_Smith_Flows %>%
+
+#post dam data first 
+flow_data_FS <- Fort_Smith_Flows %>%
   select(Date, Value) %>%
   na.omit()
 
-flow_data_postdam <- flow_data %>%
+flow_data_postdam_FS <- flow_data_FS %>%
   filter(Date > "1969-01-01" & Date < "1990-01-01")
 
-View(flow_data_postdam) 
-
+View(flow_data_postdam_FS) 
 
 ```
 
@@ -421,7 +274,7 @@ View(flow_data_postdam)
 
 ```{r} 
 
-years <- format(flow_data_predam$Date, "%Y")
+years <- format(flow_data_predam_FS$Date, "%Y")
 
 unique_years <- unique(years)
 
@@ -442,44 +295,16 @@ any(missing_years) #says if there is anything in the list
 #flow_data_date$Date <- format(flow_data$Date, "%d-%m-%Y")
 
 #Use mutate to keep both the date and value column 
-flow_data_date <- flow_data %>%
+flow_data_date_FS <- flow_data_FS %>%
 mutate(Date = format(Date,"%d-%m-%Y"))
 
 
 ```
 
 
-```{r} 
-
-
-  
-```
-
-
-```{r} 
-
-
-```
-
-
-
-```{r} 
+```{r}
 ## Convert data to zoo object
 flow_data <- zoo(flow_data_date$Value, order.by = as.Date(as.character(flow_data_date$Date), format = "%d-%m-%Y"))
-```
-
-
-```{r}
-Flow_data_Wendy <- read.csv("Flow_data.csv")
-
-Flow_data_Wendy <- zoo(Flow_data_Wendy$Flow, order.by = as.Date(as.character(Flow_data_Wendy$Date), format = "%d-%m-%Y"))
-
-
-```
-
-
-
-```{r}
 
 ## Run IHA analyses
 group1_output <- group1(flow_data, year = "water", FUN = median)
@@ -508,50 +333,49 @@ write.csv(IHA_output, "YourNewShinyOutput.csv")
 
 ```{r} 
 
+#Graphing IHA DATA IN LAYERS WITH TWO DIFFERENT DF##
+
+ggplot(data = IHA_output_predam, aes(x=Year, y = Reversals, group = 1)) +
+  geom_line(colour = 'blue') +
+  geom_point(colour = 'blue') +
+  geom_line(data = IHA_output_postdam, aes(x=Year, y = Reversals, group = 1), colour = 'orange') +
+  geom_point(data = IHA_output_postdam, aes(x=Year, y = Reversals, group = 1), colour = 'orange')  +
+  ggtitle( "07NB001 \nReversals") +
+  theme_bw()+  
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  theme(plot.title =  element_text(size = 10, hjust = .5)) +
+  theme(legend.position = "top right") 
+
 ```
 
 
-```{r} 
+#Getting station data for Wendy's post doc student
+```{r}
+
+PAD_hist <- read_csv("PAD_area_historic_gauge_data.csv")
+
+Pad_stations <- PAD_hist %>%
+select("Gauge_ID") %>%
+summarize(Gauge_ID = paste(Gauge_ID, sep = " , "))
+message(Pad_stations)
+
 ```
-
-
-
-
-```{r} 
-
-
-```
-
 
 
 ```{r}
+PAD_metadata <- tidyhydat::hy_stn_data_coll(station_number = c("07DD001", "07DD011", "07KF015", "07KF003", "07KF002", "07MD001", "07NA001", "07NA007", "07NA008", "07KC005", "07KC001", "07DA042", "07DA040", "07DC004", "07DA041", "07DA023", "07DA024", "07DA029", "07DA034", "07DA028", "07DA033", "07DA037", "07DA025", "07DA035", "07DA030", "07DA027", "07DA026", "07DA045", "07DC003"))
+
+PAD_metadata <- PAD_metadata %>%
+  filter(DATA_TYPE == "Flow" | DATA_TYPE == "Water Level")
+
+PAD_Flows <- tidyhydat::hy_daily_flows(station_number = c("07DD001", "07DD011", "07KF015", "07KF003", "07KF002", "07MD001", "07NA001", "07NA007", "07NA008", "07KC005", "07KC001", "07DA042", "07DA040", "07DC004", "07DA041", "07DA023", "07DA024", "07DA029", "07DA034", "07DA028", "07DA033", "07DA037", "07DA025", "07DA035", "07DA030", "07DA027", "07DA026", "07DA045", "07DC003"))
+
+PAD_Water_Levels <- tidyhydat::hy_daily_levels(station_number = c("07DD001", "07DD011", "07KF015", "07KF003", "07KF002", "07MD001", "07NA001", "07NA007", "07NA008", "07KC005", "07KC001", "07DA042", "07DA040", "07DC004", "07DA041", "07DA023", "07DA024", "07DA029", "07DA034", "07DA028", "07DA033", "07DA037", "07DA025", "07DA035", "07DA030", "07DA027", "07DA026", "07DA045", "07DC003"))
 
 
+write.csv(PAD_Flows, "PAD_historic_flows.csv")
 
-
-
-```
-
-?)Make sure estimated data is correct and that there are no major missing values (need to write rules we want to guide this....)
-```{r}
-
-
-```
-
-
-?)Remove stations with missing values for certain time periods
-```{r}
-
-
-```
-
-?)Do IHA Calculations - separate into flow and data columns and then use IHA package and R spreadsheet given
-```{r}
-
-```
-
-?) Make graphs 
-```{r}
+write.csv(PAD_Water_Levels, "PAD_historic_water_levels.csv")
 
 
 ```
