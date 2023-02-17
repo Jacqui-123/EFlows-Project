@@ -1,0 +1,185 @@
+
+## Data Visualization for stations on the PAD
+
+
+```{r}
+
+library(png)
+library(reticulate)
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+
+```
+
+
+```{r}
+
+pr_stn <- tidyhydat::hy_daily_flows(station_number = "07HA001")
+
+
+```
+
+
+```{r}
+
+predam_flow <- function(df,Date, Value) {
+library(dplyr)
+df <- df %>%
+  select(Date, Value) %>%
+  na.omit()%>%
+  filter( Date >= "1915-10-01" & Date < "1931-10-01") %>% 
+  mutate(Date = format(Date,"%d-%m-%Y"))
+  return(df)
+}
+
+postdam_flow <- function(df,Date, Value) {
+library(dplyr)
+df <- df %>%
+  select(Date, Value) %>%
+  na.omit() %>%
+  filter(Date >= "1972-10-01" & Date < "1992-10-01") %>%
+  mutate(Date = format(Date,"%d-%m-%Y"))
+  return(df)
+}
+
+```
+
+```{r}
+
+pr_stn_pre <- predam_flow(pr_stn, Date, Value)
+pr_stn_post <- postdam_flow(pr_stn, Date, Value)
+
+```
+
+Predam IHA Variables 
+```{r}
+
+flow_data <- zoo(pr_stn_pre$Value, order.by = as.Date(as.character(pr_stn_pre$Date), format = "%d-%m-%Y"))
+
+## Run IHA analyses
+group1_output <- group1(flow_data, year = "water", FUN = median)
+group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
+group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
+group4_output <- group4(flow_data, year = "water")
+group5_output <- group5(flow_data, year = "water")
+
+## Convert outputs
+group1_output <- as.data.frame(group1_output)
+group2_output <- group2_output[,-1]
+group3_output <- as.data.frame(group3_output)
+group4_output <- as.data.frame(group4_output)
+group5_output <- as.data.frame(group5_output)
+
+## Create output dataframe 
+IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
+
+#adding a row of post-dam years to be able to graph this on the same plot in ggplot
+#adding a "time period" grouping in case these are joined later
+library(tibble)
+IHA_output_pre <- tibble::rownames_to_column(IHA_output, "Year") %>%
+ #add_row(Year = c("1968", "1967") )%>%
+ add_column(Time_Period = "Pre Dam" )  %>%
+  add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989)) %>%
+mutate(post_years = as.character(post_years))
+
+
+```
+
+Postdam IHA Variables 
+
+```{r}
+
+flow_data <- zoo(pr_stn_post$Value, order.by = as.Date(as.character(pr_stn_post$Date), format = "%d-%m-%Y"))
+
+## Run IHA analyses
+group1_output <- group1(flow_data, year = "water", FUN = median)
+group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
+group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
+group4_output <- group4(flow_data, year = "water")
+group5_output <- group5(flow_data, year = "water")
+
+## Convert outputs
+group1_output <- as.data.frame(group1_output)
+group2_output <- group2_output[,-1]
+group3_output <- as.data.frame(group3_output)
+group4_output <- as.data.frame(group4_output)
+group5_output <- as.data.frame(group5_output)
+
+## Create output dataframe 
+IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
+
+library(tibble)
+
+IHA_output_post <- tibble::rownames_to_column(IHA_output, "Year") %>%
+ # add_row(Year = c("1968", "1967") )%>%
+ add_column(Time_Period = "Post Dam" )
+
+```
+
+
+
+
+Graphing code
+```{r}
+
+ggplot() +
+  geom_line(data = IHA_output_post, aes(x =Year, y = Max, group = 1), colour = "red", size = 0.75)  + 
+      geom_point() + 
+  annotate(geom="text", x=16, y=250, label="Maximum flow, post-dam, 1973-1992",
+              color="red") +
+  
+  #geom_line(data = IHA_output_post, aes(x =Year, y = Min, group = 1), colour = "blue" ) + 
+   #   geom_point() + 
+  
+  geom_line(data = IHA_output_pre, aes(x = post_years, y = Max, group = 1), colour = "black", size = 1)  + 
+      geom_point() +
+  annotate(geom="text", x=14, y=140, label="Maximum flow, pre-dam: 1916-1931",
+              color="black") +
+
+  ggtitle( "Maximum River Flow Pre and Post Bennet Dam for a Station on the Peace River") +
+  ylab("Flow")+
+  xlab("Post-dam years") +
+  theme_bw() +
+   theme(plot.title = element_text(size = 10, hjust = .5, face = "bold")) # +
+    #theme(axis.text.x = element_blank()) #+
+
+  
+    # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  #  theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+#  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) +
+#   scale_colour_discrete(na.translate = F)
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+
+
+```
