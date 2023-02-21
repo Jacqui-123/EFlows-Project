@@ -20,7 +20,6 @@ library(ggplot2)
 
 pr_stn <- tidyhydat::hy_daily_flows(station_number = "07HA001")
 
-
 ```
 
 
@@ -121,6 +120,80 @@ IHA_output_post <- tibble::rownames_to_column(IHA_output, "Year") %>%
 ```
 
 
+```{r}
+
+test <- IHA_output_pre %>% select('1 Day Min' , '1 Day Max')
+
+test %>%
+  select()
+summarize(quant_min = quantile(seq(0, 1, .33)) ) 
+
+
+```
+
+
+```{r}
+
+quant_test <- function(x) {
+
+quantiles <- quantile(x, c(0.33, 0.64))
+names(quantiles) <- paste0(names(x), "_quantile")
+return(quantiles)
+
+}
+
+
+
+```
+
+```{r}
+quant_calc_33 <- function(x){
+  quant <- quantile(x, c(0.33))
+  return(quant)
+}
+
+quant_calc_64 <- function(x){
+  quant <- quantile(x, c(0.64))
+  return(quant)
+}
+
+
+rename_cols <- function(df, suffix) {
+  names(df) <- paste0(names(df), suffix)
+  return(df)
+}
+```
+
+
+```{r}
+
+name <- names(test2)
+
+test2 <- IHA_output_pre %>%
+  select(-c("Low pulse length")) %>%
+  summarise(across(October:Reversals, quant_calc_33)) %>%
+  rename_cols("_q33") %>%
+  add_row(.before = 2, .rows = 18) %>% 
+  fill(name) %>% 
+add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989, 1990, 1991, 1992))
+
+name <- names(test3)
+test3 <- IHA_output_pre %>%
+  select(-c("Low pulse length")) %>%
+  summarise(across(October:Reversals, quant_calc_64)) %>%
+  rename_cols("_q64") %>%
+  add_row(.before = 2, .rows = 18) %>% 
+  fill(name) %>% 
+add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989, 1990, 1991, 1992))
+  
+
+df_quartiles <- merge(test2, test3, by = "post_years" ) %>%
+mutate(post_years = as.character(post_years))
+
+
+
+
+```
 
 
 Graphing code
@@ -157,23 +230,44 @@ ggplot() +
 
 ```{r}
 
+ggplot() +
+  geom_line(data = IHA_output_post, aes(x =Year, y = Max, group = 1), colour = "red", size = 0.75)  + 
+      geom_point() + 
+   annotate(geom="text", x=16, y=250, label="Maximum flow, post-dam, 1973-1992",
+              color="red") +
+ 
+  geom_line(data = df_quartiles, aes(x = post_years, y = Max_q33, group = 1),  colour = "black", size = 0.4)  + 
+  
+  geom_line(data = df_quartiles, aes(x = post_years, y = Max_q64, group = 1),  colour = "black", size = 0.4)  
+
+
+
+
 ```
 
 
 ```{r}
 
+
+
 ```
 
 ```{r}
 
+
+
 ```
 
 
 ```{r}
 
+
+
 ```
 
 ```{r}
+
+
 
 ```
 
