@@ -119,84 +119,7 @@ IHA_output_post <- tibble::rownames_to_column(IHA_output, "Year") %>%
 
 ```
 
-
-```{r}
-
-test <- IHA_output_pre %>% select('1 Day Min' , '1 Day Max')
-
-test %>%
-  select()
-summarize(quant_min = quantile(seq(0, 1, .33)) ) 
-
-
-```
-
-
-```{r}
-
-quant_test <- function(x) {
-
-quantiles <- quantile(x, c(0.33, 0.64))
-names(quantiles) <- paste0(names(x), "_quantile")
-return(quantiles)
-
-}
-
-
-
-```
-
-```{r}
-quant_calc_33 <- function(x){
-  quant <- quantile(x, c(0.33))
-  return(quant)
-}
-
-quant_calc_64 <- function(x){
-  quant <- quantile(x, c(0.64))
-  return(quant)
-}
-
-
-rename_cols <- function(df, suffix) {
-  names(df) <- paste0(names(df), suffix)
-  return(df)
-}
-```
-
-
-```{r}
-
-name <- names(test2)
-
-test2 <- IHA_output_pre %>%
-  select(-c("Low pulse length")) %>%
-  summarise(across(October:Reversals, quant_calc_33)) %>%
-  rename_cols("_q33") %>%
-  add_row(.before = 2, .rows = 18) %>% 
-  fill(name) %>% 
-add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989, 1990, 1991, 1992))
-
-name <- names(test3)
-test3 <- IHA_output_pre %>%
-  select(-c("Low pulse length")) %>%
-  summarise(across(October:Reversals, quant_calc_64)) %>%
-  rename_cols("_q64") %>%
-  add_row(.before = 2, .rows = 18) %>% 
-  fill(name) %>% 
-add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989, 1990, 1991, 1992))
-  
-
-df_quartiles <- merge(test2, test3, by = "post_years" ) %>%
-mutate(post_years = as.character(post_years))
-
-
-
-
-```
-
-
-Graphing code
+Line graphs -  Max flow predam vs post dam
 ```{r}
 
 ggplot() +
@@ -225,55 +148,180 @@ ggplot() +
   #  theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
 #  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) +
 #   scale_colour_discrete(na.translate = F)
+```
+
+Calculate percentiles, to get a range of variability within 0.33, 0.64 percentiles: 
+
+```{r}
+#function to calculate both quartiles, 0.33, 0.63, in one df
+quant_calc <- function(x) {
+
+quantiles <- quantile(x, c(0.33, 0.64))
+names(quantiles) <- paste0(names(x), "_quantile")
+return(quantiles)
+}
+#not as good for data tidying, otherwise need to manually rename columns
+```
+
+Calculate quartiles, rename columns, and then join dfs together:
+```{r}
+
+#functions to calculate each quartiles, 0.33, 0.63, in separate dfs
+
+quant_calc_33 <- function(x){
+  quant <- quantile(x, c(0.33))
+  return(quant)
+}
+
+quant_calc_64 <- function(x){
+  quant <- quantile(x, c(0.64))
+  return(quant)
+}
+
+#function to rename column, use after calc quartiles 
+rename_cols <- function(df, suffix) {
+  names(df) <- paste0(names(df), suffix)
+  return(df)
+}
+```
+
+Rename columns and join 0.33 and 0.64 dfs together 
+```{r}
+
+name <- names(pre_33)
+
+pre_33 <- IHA_output_pre %>%
+  select(-c("Low pulse length")) %>%
+  summarise(across(October:Reversals, quant_calc_33)) %>%
+  rename_cols("_q33") %>%
+  add_row(.before = 2, .rows = 18) %>%
+  fill(name) %>% 
+add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989, 1990, 1991, 1992))
+
+name <- names(pre_64)
+pre_64 <- IHA_output_pre %>%
+  select(-c("Low pulse length")) %>%
+  summarise(across(October:Reversals, quant_calc_64)) %>%
+  rename_cols("_q64") %>%
+  add_row(.before = 2, .rows = 18) %>% 
+  fill(name) %>%
+add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989, 1990, 1991, 1992))
+  
+#join together 
+df_quartiles <- merge(pre_33, pre_64, by = "post_years" ) %>%
+mutate(post_years = as.character(post_years))
 
 ```
 
+Finally, graph an IHA variable for the post-dam period with the 0.33-0.64 percentiles from the pre-dam period 
 ```{r}
-
 ggplot() +
   geom_line(data = IHA_output_post, aes(x =Year, y = Max, group = 1), colour = "red", size = 0.75)  + 
       geom_point() + 
    annotate(geom="text", x=16, y=250, label="Maximum flow, post-dam, 1973-1992",
               color="red") +
- 
-  geom_line(data = df_quartiles, aes(x = post_years, y = Max_q33, group = 1),  colour = "black", size = 0.4)  + 
-  
-  geom_line(data = df_quartiles, aes(x = post_years, y = Max_q64, group = 1),  colour = "black", size = 0.4)  
+ #q33 line
+  geom_line(data = df_quartiles, aes(x = post_years, y = Max_q33, group = 1), linetype = 'dotted', colour = "black", size = 0.5)  + 
+  #q64 line
+  geom_line(data = df_quartiles, aes(x = post_years, y = Max_q64, group = 1), linetype = 'dotted', colour = "black", size = 0.5)  
 
-
-
-
+#maybe also add a .50 median line?
 ```
-
+Now, switching gears to calculate percent change 
 
 ```{r}
+#to look at the distribution of the data
+#ggplot(IHA_output_post, aes( x = March)) + 
+ # geom_histogram(binwidth = 100)
+#seems uneven, should we use median instead?
 
+#mean for all values, predam
+IHA_output_pre_mean <- IHA_output_pre %>%
+  summarise(across(October:Reversals, mean)) 
 
-
-```
-
-```{r}
-
-
-
-```
-
-
-```{r}
-
-
+#mean for all values, postdam
+IHA_output_post_mean <- IHA_output_post %>%
+  summarise(across(October:Reversals, mean)) 
 
 ```
 
 ```{r}
-
-
+#percent change pre and post dam
+m <-  ((IHA_output_post_mean - IHA_output_pre_mean)/IHA_output_pre_mean) * 100
 
 ```
 
+Graphs of mean percent change
+```{r}
 
+#reshape percent change df 
+test <- data.frame(t(m)) %>%
+  rename("Value" =  "t.m." ) %>%
+  rownames_to_column("Variable")
+
+#us this to round in case want to label bars
+test$Value <- round (test$Value, digits = 0)
+
+#barplot of mins and maxes percent change
+ggplot(test, aes( x = Variable, y = Value) ) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ylab("Percent change") +
+  xlab("IHA variable") +
+  scale_x_discrete(limits = c('1 Day Min', '3 Day Min', '7 Day Min','30 Day Min', '90 Day Min', '1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max' , '90 Day Max')) #+
+
+  #geom_text(aes(label = Value), vjust = 1)
+
+```
 
 ```{r}
 
+#barplot of percent change by month
+
+ggplot(test, aes( x = Variable, y = Value) ) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ylab("Percent change") +
+  xlab("IHA variable") +
+scale_x_discrete(limits = c('October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September'))
 
 ```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
