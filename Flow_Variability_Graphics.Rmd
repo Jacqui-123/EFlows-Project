@@ -15,14 +15,14 @@ library(ggplot2)
 
 ```
 
-
+Station to practice on:
 ```{r}
 
 pr_stn <- tidyhydat::hy_daily_flows(station_number = "07HA001")
 
 ```
 
-
+Functions for predam and postdam flows
 ```{r}
 
 predam_flow <- function(df,Date, Value) {
@@ -47,6 +47,7 @@ df <- df %>%
 
 ```
 
+Getting flow for those years
 ```{r}
 
 pr_stn_pre <- predam_flow(pr_stn, Date, Value)
@@ -151,7 +152,6 @@ ggplot() +
 ```
 
 Calculate percentiles, to get a range of variability within 0.33, 0.64 percentiles: 
-
 ```{r}
 #function to calculate both quartiles, 0.33, 0.63, in one df
 quant_calc <- function(x) {
@@ -227,8 +227,8 @@ ggplot() +
 
 #maybe also add a .50 median line?
 ```
-Now, switching gears to calculate percent change 
-
+Now, calculate percent change
+(IGNORE THIS NOW)
 ```{r}
 #to look at the distribution of the data
 #ggplot(IHA_output_post, aes( x = March)) + 
@@ -240,18 +240,16 @@ IHA_output_pre_mean <- IHA_output_pre %>%
   summarise(across(October:Reversals, mean)) 
 
 #mean for all values, postdam
+#don't need this anymore
 IHA_output_post_mean <- IHA_output_post %>%
-  summarise(across(October:Reversals, mean)) 
+  summarise(across(October:Reversals, mean))
 
-```
-
-```{r}
 #percent change pre and post dam
-m <-  ((IHA_output_post_mean - IHA_output_pre_mean)/IHA_output_pre_mean) * 100
-
+#this is incorrect/depreciated now
+perc_change <-  ((IHA_output_post_mean - IHA_output_pre_mean)/IHA_output_pre_mean) * 100
 ```
 
-Graphs of mean percent change
+Graphs of mean percent change - old way that just looks at total percent change (ie one value of mean for post, pre, and then subtracting those). But keep this bargraph code to use later on
 ```{r}
 
 #reshape percent change df 
@@ -289,15 +287,85 @@ scale_x_discrete(limits = c('October', 'November', 'December', 'January' , 'Febr
 
 ```
 
+##Percent change: 
+
+Calculate percent change, using all the annual values: (Post-dam annual values - pre-dam mean values) / pre-dam mean values
 ```{r}
+
+#First get the mean output for the pre-dam IHA outputs
+IHA_output_pre_mean <- IHA_output_pre %>%
+  summarise(across(October:Reversals, mean)) 
+
+#then make the IHA pre-dam mean dataframe the same length as the IHA post-dam dataframe
+IHA_output_pre_mean_all <- IHA_output_pre_mean[rep(1, nrow(IHA_output_post)),]
+
+#get rid of the time period and year
+IHA_output_post_calc <- IHA_output_post %>%
+  select(-c(Year, Time_Period))
+
+#make a subset of the "Year" column for later
+year_post <- IHA_output_post["Year"]
+
+#do the calculation: IHA_output_postdam_annualvalues - IHA_output_pre_mean/IHA_output_pre_mean
+percent_change_output <- ((IHA_output_post_calc - IHA_output_pre_mean_all)/IHA_output_pre_mean_all) * 100
+
+#add the year df and percent change output df together
+percent_change_years <- merge(year_post, percent_change_output, by.x = 0, by.y = 0)
+
 
 ```
 
+
+Now, put all this into a function: 
 ```{r}
+
+group1_output <- as.data.frame(group1_output)
+group2_output <- group2_output[,-1]
+group3_output <- as.data.frame(group3_output)
+group4_output <- as.data.frame(group4_output)
+group5_output <- as.data.frame(group5_output)
+
+## Create output dataframe 
+IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
+
+func_output_test <- function(datapre, datapost)
+#First get the mean output for the pre-dam IHA outputs
+IHA_output_pre_mean <- IHA_output_pre %>%
+  summarise(across(October:Reversals, mean)) 
+
+#then make the IHA pre-dam mean dataframe the same length as the IHA post-dam dataframe
+IHA_output_pre_mean_all <- IHA_output_pre_mean[rep(1, nrow(IHA_output_post)),]
+
+#get rid of the time period and year
+IHA_output_post_calc <- IHA_output_post %>%
+  select(-c(Year, Time_Period))
+
+#make a subset of the "Year" column for later
+year_post <- IHA_output_post["Year"]
+
+#do the calculation: IHA_output_postdam_annualvalues - IHA_output_pre_mean/IHA_output_pre_mean
+percent_change_output <- ((IHA_output_post_calc - IHA_output_pre_mean_all)/IHA_output_pre_mean_all) * 100
+
+#add the year df and percent change output df together
+percent_change_years <- merge(year_post, percent_change_output, by.x = 0, by.y = 0)
 
 ```
 
+Graphs of the percent change output:
+
 ```{r}
+
+ggplot() +
+  geom_line(data = percent_change_years, aes(x = Year, y = Max), group = 1, colour = "red", size = 0.75)  + 
+      geom_point() +
+  annotate(geom="text", x=16, y=55, label="Maximum flow", color="red") +
+  
+   geom_line(data = percent_change_years, aes(x = Year, y = Min), group = 1, colour = "blue", size = 0.75)  + 
+      geom_point() +
+    annotate(geom="text", x=15, y=250, label="Minimum flow", color="blue") +
+
+  
+  ylab("Percent Change")
 
 ```
 
