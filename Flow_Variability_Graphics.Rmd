@@ -25,6 +25,8 @@ pr_stn <- tidyhydat::hy_daily_flows(station_number = "07HA001")
 Functions for predam and postdam flows
 ```{r}
 
+#edit so user inputs dates they want, rather than having a pre/post dam flow function - do in the functions section
+
 predam_flow <- function(df,Date, Value) {
 library(dplyr)
 df <- df %>%
@@ -58,33 +60,16 @@ pr_stn_post <- postdam_flow(pr_stn, Date, Value)
 Predam IHA Variables 
 ```{r}
 
-flow_data <- zoo(pr_stn_pre$Value, order.by = as.Date(as.character(pr_stn_pre$Date), format = "%d-%m-%Y"))
 
-## Run IHA analyses
-group1_output <- group1(flow_data, year = "water", FUN = median)
-group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
-group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
-group4_output <- group4(flow_data, year = "water")
-group5_output <- group5(flow_data, year = "water")
-
-## Convert outputs
-group1_output <- as.data.frame(group1_output)
-group2_output <- group2_output[,-1]
-group3_output <- as.data.frame(group3_output)
-group4_output <- as.data.frame(group4_output)
-group5_output <- as.data.frame(group5_output)
-
-## Create output dataframe 
-IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
-
-#adding a row of post-dam years to be able to graph this on the same plot in ggplot
-#adding a "time period" grouping in case these are joined later
 library(tibble)
-IHA_output_pre <- tibble::rownames_to_column(IHA_output, "Year") %>%
- #add_row(Year = c("1968", "1967") )%>%
+
+IHA_output <- calc_IHA(pr_stn_pre)
+
+IHA_output_pre <- IHA_output %>%
  add_column(Time_Period = "Pre Dam" )  %>%
   add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989)) %>%
 mutate(post_years = as.character(post_years))
+
 
 
 ```
@@ -93,28 +78,10 @@ Postdam IHA Variables
 
 ```{r}
 
-flow_data <- zoo(pr_stn_post$Value, order.by = as.Date(as.character(pr_stn_post$Date), format = "%d-%m-%Y"))
 
-## Run IHA analyses
-group1_output <- group1(flow_data, year = "water", FUN = median)
-group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
-group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
-group4_output <- group4(flow_data, year = "water")
-group5_output <- group5(flow_data, year = "water")
+IHA_output <- calc_IHA(pr_stn_post)
 
-## Convert outputs
-group1_output <- as.data.frame(group1_output)
-group2_output <- group2_output[,-1]
-group3_output <- as.data.frame(group3_output)
-group4_output <- as.data.frame(group4_output)
-group5_output <- as.data.frame(group5_output)
-
-## Create output dataframe 
-IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
-
-library(tibble)
-
-IHA_output_post <- tibble::rownames_to_column(IHA_output, "Year") %>%
+IHA_output_post <- IHA_output %>%
  # add_row(Year = c("1968", "1967") )%>%
  add_column(Time_Period = "Post Dam" )
 
@@ -190,13 +157,13 @@ Rename columns and join 0.33 and 0.64 dfs together
 
 name <- names(pre_33)
 
-pre_33 <- IHA_output_pre %>%
-  select(-c("Low pulse length")) %>%
-  summarise(across(October:Reversals, quant_calc_33)) %>%
-  rename_cols("_q33") %>%
-  add_row(.before = 2, .rows = 18) %>%
-  fill(name) %>% 
-add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989, 1990, 1991, 1992))
+  pre_33 <- IHA_output_pre %>%
+    select(-c("Low pulse length")) %>%
+    summarise(across(October:Reversals, quant_calc_33)) %>%
+    rename_cols("_q33") %>%
+    add_row(.before = 2, .rows = 18) %>%
+    fill(name) %>% 
+  add_column('post_years'= c(1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1989, 1990, 1991, 1992))
 
 name <- names(pre_64)
 pre_64 <- IHA_output_pre %>%
@@ -229,7 +196,7 @@ ggplot() +
 ```
 Now, calculate percent change
 (IGNORE THIS NOW)
-```{r}
+```{r, include = FALSE}
 #to look at the distribution of the data
 #ggplot(IHA_output_post, aes( x = March)) + 
  # geom_histogram(binwidth = 100)
@@ -249,8 +216,9 @@ IHA_output_post_mean <- IHA_output_post %>%
 perc_change <-  ((IHA_output_post_mean - IHA_output_pre_mean)/IHA_output_pre_mean) * 100
 ```
 
-Graphs of mean percent change - old way that just looks at total percent change (ie one value of mean for post, pre, and then subtracting those). But keep this bargraph code to use later on
-```{r}
+Graphs of mean percent change - old way that just looks at total percent change (ie one value of mean for post, pre, and then subtracting those). But keep this bargraph code to use later on 
+(IGNORE BUT KEEP)
+```{r, include = FALSE}
 
 #reshape percent change df 
 test <- data.frame(t(m)) %>%
@@ -328,26 +296,38 @@ group5_output <- as.data.frame(group5_output)
 ## Create output dataframe 
 IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
 
-func_output_test <- function(datapre, datapost)
-#First get the mean output for the pre-dam IHA outputs
-IHA_output_pre_mean <- IHA_output_pre %>%
+
+#takes inputs for the IHA output dataframe for pre and post
+percent_change <- function(datapre, datapost){
+  
+  IHA_output_pre_mean <- {{datapre}} %>%
   summarise(across(October:Reversals, mean)) 
+  IHA_output_pre_mean_all <- IHA_output_pre_mean[rep(1, nrow({{datapost}})),]
+  
+  #good for error checking here, if datapost has year, timeperiod, then don't run this section of code
+  IHA_output_post_calc <- {{datapost}} %>%
+  select(-c(Year, Time_Period))
+  
+  year_post <- {{datapost}}["Year"]
+  percent_change_output <- ((IHA_output_post_calc - IHA_output_pre_mean_all)/IHA_output_pre_mean_all) * 100
+percent_change_years <- merge(year_post, percent_change_output, by.x = 0, by.y = 0)
+
+}
+
+
+test <- compute_percent_change(IHA_output_pre, IHA_output_post)
+#First get the mean output for the pre-dam IHA outputs
 
 #then make the IHA pre-dam mean dataframe the same length as the IHA post-dam dataframe
-IHA_output_pre_mean_all <- IHA_output_pre_mean[rep(1, nrow(IHA_output_post)),]
 
 #get rid of the time period and year
-IHA_output_post_calc <- IHA_output_post %>%
-  select(-c(Year, Time_Period))
+
 
 #make a subset of the "Year" column for later
-year_post <- IHA_output_post["Year"]
 
 #do the calculation: IHA_output_postdam_annualvalues - IHA_output_pre_mean/IHA_output_pre_mean
-percent_change_output <- ((IHA_output_post_calc - IHA_output_pre_mean_all)/IHA_output_pre_mean_all) * 100
 
 #add the year df and percent change output df together
-percent_change_years <- merge(year_post, percent_change_output, by.x = 0, by.y = 0)
 
 ```
 

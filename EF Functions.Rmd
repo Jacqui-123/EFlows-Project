@@ -5,6 +5,9 @@
 1) Returns a DF of all pre-Bennett dam stations from 1947-1967. Input: a df of the station metadata from hy_stn_data_coll in hydat.
 
 ```{r}
+
+#need to edit so user inputs the df and the year range and it returns a DF, rather than pre and post function
+
 Stations_pre_Bennett <- function(df, STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT) {
   
 library(dplyr)
@@ -34,6 +37,8 @@ select(STATION_NUMBER, DATA_TYPE, min_date, max_date)  %>%
 2) Returns a DF of post-Bennett dam stations from 1969-1989. Input: a df of the station metadata from hy_stn_data_coll in hydat.
 
 ```{r}
+#need to edit so user inputs the df and the year range and it returns a DF, rather than pre and post function
+
 Stations_post_Bennett <- function(df,STATION_NUMBER, DATA_TYPE, Year_from, Year_to, MEASUREMENT ) {
   library(dplyr)
   df <- df %>%
@@ -66,6 +71,8 @@ select(STATION_NUMBER, DATA_TYPE, min_date, max_date)  %>%
 3) Returns a DF of pre-Bennett years (1947-67) from a df of one or more stations, that can then be put into IHA calculation sheet. Input: a single df of the flow data for one or more stations from hy_daily_flows in hydat.
 ```{r}
 
+#need to edit so user inputs the df and the year range and it returns a DF, rather than having a pre and post function
+
 flow_data_predam <- function(df,Date, Value) {
 library(dplyr)
 df <- df %>%
@@ -82,6 +89,7 @@ df <- df %>%
  
 ```{r}
 
+#need to edit so user inputs the df and the year range and it returns a DF, rather than having a pre and post function
 flow_data_postdam <- function(df,Date, Value) {
 library(dplyr)
 df <- df %>%
@@ -110,9 +118,52 @@ print(missing_years)
 
 ```
 
+## IHA calculations ##
 
+```{r}
 
+calc_IHA <- function(data){
+  
+flow_data <-  {{data}} #%>%
+#  select(Date, Value)
+  
 
+flow_data <- zoo(flow_data$Value, order.by = as.Date(as.character(flow_data$Date), format = "%d-%m-%Y"))
+## Run IHA analyses
+group1_output <- group1(flow_data, year = "water", FUN = median)
+group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
+group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
+#group4_output <- group4(flow_data, year = "water")
+group5_output <- group5(flow_data, year = "water")
+
+## Convert outputs
+group1_output <- as.data.frame(group1_output)
+group2_output <- group2_output[,-1]
+group3_output <- as.data.frame(group3_output)
+#group4_output <- as.data.frame(group4_output)
+group5_output <- as.data.frame(group5_output)
+
+## Create output dataframe 
+#Need to figure out how to join all 4 dfs even if they are diff sizes - use reduce? 
+#group4 data left out for now (low/high pulse numbers)
+
+IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group5_output)) #group4_output
+
+#make the years the column names instead of the rownames
+IHA_output <- tibble::rownames_to_column(IHA_output, "Year") 
+
+}
 
 ```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+```
+
 

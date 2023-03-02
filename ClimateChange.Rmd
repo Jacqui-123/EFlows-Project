@@ -1,0 +1,136 @@
+## Data Visualization for stations on the PAD
+
+
+```{r}
+
+library(png)
+library(reticulate)
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+
+```
+
+Station metadata with lat/longs:
+```{r}
+stn_meta <- tidyhydat::hy_stations(station_number = c('07AD001', '07AF002', '07AH001', '07BC002', '07BE001', '07BK007', '07CD001', '07CA006', '07CD004', '07CD005', '07DA001', '07DB001', '07DD002', '07EF001', '07EE007', '07EC003', '07FD001', '07FB001', '07FD012', '07GJ001', '07GH002', '07GE001', '07HA001', '07HC001', '07JD002', '07KC001', '07LE002', '07LB002', '07MB001', '07NB001', '07MA003'  ))
+
+stn_meta <- stn_meta %>%
+  select(STATION_NUMBER, STATION_NAME, PROV_TERR_STATE_LOC, LATITUDE, LONGITUDE, HYD_STATUS) 
+  write.csv(stn_meta, "Stns_Climate_Change_LAT_LONG.csv")
+
+```
+
+Get all the flow data: 
+
+```{r}
+
+stns_all <- tidyhydat::hy_daily_flows(station_number = c('07AD002', '07AF002', '07AH001', '07BC002', '07BE001', '07BK007', '07CD001', '07CA006', '07CD004', '07CD005', '07DA001', '07DB001', '07DD002', '07EF001', '07EE007', '07EC003', '07FD001', '07FB001', '07FD012', '07GJ001', '07GH002', '07GE001', '07HA001', '07HC001', '07JD002', '07KC001', '07LE002', '07LB002', '07MB001', '07NB001', '07MA003'  ))
+
+```
+
+Keep only the 1 March - 31 October data from 1975 - 2005
+```{r}
+
+stns_march_oct <- stns_all %>%
+mutate(Date = as.Date(Date)) %>%
+  filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) %>%
+  filter(year(Date) %in% c(1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005)) %>%
+  mutate(Date = format(Date,"%d-%m-%Y"))
+
+
+```
+
+Calculate IHA variables...
+```{r}
+
+#make a list of dfs by station number
+lst_stns_march_oct <- split(stns_march_oct, stns_march_oct$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_march_oct_IHA <- lapply(lst_stns_march_oct, calc_IHA)
+
+```
+
+Graph reversals for each station
+```{r}
+
+
+plt <- function(data) {
+ggplot() +
+  geom_line(data = {{data}}, aes(x = Year, y = Reversals), group = 1, colour = "red", size = 0.75)  + 
+      geom_point() +
+        scale_x_discrete(breaks = seq(1975, 2006, 2)) 
+  
+}
+
+```
+
+
+```{r}
+plt(stn_07AD002_IHA)
+
+```
+
+```{r}
+
+pltlist <- lapply(lst_stns_march_oct_IHA, plt)
+
+grid.arrange(grobs = pltlist)
+
+```
+
+
+```{r}
+df1 <- lst_stns_march_oct_IHA$`07AD002`
+df2 <- lst_stns_march_oct_IHA$`07AF002`
+df3 <- lst_stns_march_oct_IHA$`07AH001`
+df4 <- lst_stns_march_oct_IHA$`07BC002`
+df5 <- lst_stns_march_oct_IHA$`07BE001`
+
+```
+
+
+```{r}
+ggplot() +
+  geom_line(data = df1, aes(x = Year, y = Reversals), group = 1, colour = "red", size = 0.75)  + 
+      geom_point() +
+     # annotate(geom="text", x=16, y=55, label="07AD002", color="red") +
+  
+   geom_line(data = df2, aes(x = Year, y = Reversals), group = 1, colour = "blue", size = 0.75)  + 
+      geom_point() +
+      #annotate(geom="text", x=16, y=55, label="07AF002", color="blue") +
+  
+   geom_line(data = df3, aes(x = Year, y = Reversals), group = 1, colour = "black", size = 0.75)  + 
+      geom_point() +
+      #annotate(geom="text", x=16, y=55, label="07AH001", color="black") +
+  
+   geom_line(data = df4, aes(x = Year, y = Reversals), group = 1, colour = "green", size = 0.75)  + 
+      geom_point() +
+      #annotate(geom="text", x=16, y=55, label="07BC002", color="green") +
+  
+   geom_line(data = df5, aes(x = Year, y = Reversals), group = 1, colour = "purple", size = 0.75)  + 
+      geom_point() +
+     # annotate(geom="text", x=16, y=55, label="07BE001", color="purple") +
+  
+
+        scale_x_discrete(breaks = seq(1975, 2006, 2)) +
+  
+
+ggtitle("Reversals for five stations on the PAD") +
+
+  
+
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
