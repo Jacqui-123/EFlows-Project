@@ -11,6 +11,8 @@ library(tidyhydat)
 library(zoo)
 library(lubridate)
 library(ggplot2)
+library(grid)
+library(gridExtra)
 
 ```
 
@@ -41,7 +43,6 @@ mutate(Date = as.Date(Date)) %>%
   filter(year(Date) %in% c(1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005)) %>%
   mutate(Date = format(Date,"%d-%m-%Y"))
 
-
 ```
 
 Calculate IHA variables...
@@ -58,33 +59,49 @@ lst_stns_march_oct_IHA <- lapply(lst_stns_march_oct, calc_IHA)
 Graph reversals for each station
 ```{r}
 
+#make a graphing function to plot one at a time
 
-plt <- function(data) {
+plt <- function(data, variable) {
 ggplot() +
-  geom_line(data = {{data}}, aes(x = Year, y = Reversals), group = 1, colour = "red", size = 0.75)  + 
+  geom_line(data = {{data}}, aes(x = Year, y = {{variable}}), group = 1, colour = "red", linewidth = 0.75)  + 
       geom_point() +
-        scale_x_discrete(breaks = seq(1975, 2006, 2)) 
-  
+        scale_x_discrete(breaks = seq(1975, 2006, 2))
 }
 
 ```
 
-
+##Graph of Pre-Period##
+Plotting options:
 ```{r}
-plt(stn_07AD002_IHA)
+
+#make a list of all plot objects
+pltlist <- lapply(lst_stns_march_oct_IHA, plt) #only works if plt function has x value already in it, can't figure out how to use lapply and choosing a diff x value
+
+#plot all plots in a grid
+#grid.arrange(grobs = pltlist)
+
+#or combine all IHA outputs into one df 
+df_combined_IHA_pre <- bind_rows(lst_stns_march_oct_IHA, .id = "Station_Number")
+
+#graph combined df on one graph 
+df_combined_IHA_pre %>%
+group_by(Station_Number) %>%
+  filter(Station_Number ==  '07BC002' | Station_Number == '07AF002' | Station_Number == '07AH001')  %>% #can filter/choose just a few stations
+ggplot(aes(y=Reversals, x = Year, group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = 0.75) +
+          scale_x_discrete(breaks = seq(1975, 2006, 2)) +
+  ggtitle("Reversals, 1975-2005") +
+  theme(plot.title = element_text(hjust = 0.5) )
+
+
 
 ```
 
-```{r}
-
-pltlist <- lapply(lst_stns_march_oct_IHA, plt)
-
-grid.arrange(grobs = pltlist)
-
-```
-
 
 ```{r}
+
+#plot just a few stations together on one graph
+#need to automate this better
 df1 <- lst_stns_march_oct_IHA$`07AD002`
 df2 <- lst_stns_march_oct_IHA$`07AF002`
 df3 <- lst_stns_march_oct_IHA$`07AH001`
@@ -96,23 +113,23 @@ df5 <- lst_stns_march_oct_IHA$`07BE001`
 
 ```{r}
 ggplot() +
-  geom_line(data = df1, aes(x = Year, y = Reversals), group = 1, colour = "red", size = 0.75)  + 
+  geom_line(data = df1, aes(x = Year, y = Reversals), group = 1, colour = "red", linewidth = 0.75)  + 
       geom_point() +
      # annotate(geom="text", x=16, y=55, label="07AD002", color="red") +
   
-   geom_line(data = df2, aes(x = Year, y = Reversals), group = 1, colour = "blue", size = 0.75)  + 
+   geom_line(data = df2, aes(x = Year, y = Reversals), group = 1, colour = "blue", linewidth = 0.75)  + 
       geom_point() +
       #annotate(geom="text", x=16, y=55, label="07AF002", color="blue") +
   
-   geom_line(data = df3, aes(x = Year, y = Reversals), group = 1, colour = "black", size = 0.75)  + 
+   geom_line(data = df3, aes(x = Year, y = Reversals), group = 1, colour = "black", linewidth = 0.75)  + 
       geom_point() +
       #annotate(geom="text", x=16, y=55, label="07AH001", color="black") +
   
-   geom_line(data = df4, aes(x = Year, y = Reversals), group = 1, colour = "green", size = 0.75)  + 
+   geom_line(data = df4, aes(x = Year, y = Reversals), group = 1, colour = "green", linewidth = 0.75)  + 
       geom_point() +
       #annotate(geom="text", x=16, y=55, label="07BC002", color="green") +
   
-   geom_line(data = df5, aes(x = Year, y = Reversals), group = 1, colour = "purple", size = 0.75)  + 
+   geom_line(data = df5, aes(x = Year, y = Reversals), group = 1, colour = "purple", linewidth = 0.75)  + 
       geom_point() +
      # annotate(geom="text", x=16, y=55, label="07BE001", color="purple") +
   
@@ -120,17 +137,154 @@ ggplot() +
         scale_x_discrete(breaks = seq(1975, 2006, 2)) +
   
 
-ggtitle("Reversals for five stations on the PAD") +
+ggtitle("Reversals for five stations on the PAD")
 
-  
+```
+##################################
+#### Calculating Percent Change ####
+
+Make a df for the medians for the 1975-2005 period 
+```{r}
+
+#find median of all IHA variables for 1975-2005
+IHA_medians_pre <- df_combined_IHA_pre %>%
+  group_by(Station_Number) %>%
+  summarise(across(October:Reversals, median ))
+
+
+```
+
+Make a df of flow data for 2006-2020 ("post" period)
+```{r}
+#make df for 1 March - 31 October data from 2006-2020
+stns_all_pst <- stns_all %>%
+mutate(Date = as.Date(Date)) %>%
+  filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) %>%
+  filter(year(Date) %in% c(2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020)) %>%
+  mutate(Date = format(Date,"%d-%m-%Y"))
+```
+
+
+```{r}
+#make a list of dfs by station number
+stns_all_pst_mar_oct <- split(stns_all_pst, stns_all_pst$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_mar_oct_IHA <- lapply(stns_all_pst_mar_oct, calc_IHA)
+
+IHA_pst <- bind_rows(lst_stns_mar_oct_IHA, .id = "Station_Number")
+
+```
+
+
+```{r}
+
+years_post <- IHA_pst["Year"]
+
+IHA_pst <- IHA_pst %>% select(-c(Year))
+
+#do the calculation:
+
+percent_change_output <- ((IHA_pst - IHA_medians_pre)/IHA_medians_pre) * 100
 
 
 ```
 
 
 ```{r}
+
+IHA_medians_pre_07AD002 <- IHA_medians_pre %>%
+  filter(Station_Number == '07AD002') %>% 
+  select(-c(Station_Number))
+
+IHA_pst_07AD002 <- IHA_pst %>%
+  filter(Station_Number == '07AD002') %>% 
+  select(-c(Station_Number))
+
+IHA_output_pre_exp <- IHA_medians_pre_07AD002[rep(1, nrow(IHA_pst_07AD002)),]
+
+#IHA_pst_07AD002 <- IHA_pst_07AD002 %>% select(-c(Station_Number))
+
+#IHA_output_pre_exp <- IHA_output_pre_exp %>% select(-c(Station_Number))
+
+output <- ((IHA_pst_07AD002 -  IHA_output_pre_exp )/IHA_output_pre_exp ) *100
+
+```
+
+make a function to calculate the percent change for each station
+```{r}
+
+calc_perc_change <- function(data_pre, data_pst, stn){ #, data_pst, stn
+
+years_post <- {{data_pst}}$Year
+
+IHA_medians_pre <- {{data_pre}} %>%
+  filter(Station_Number == {{stn}}) %>% 
+  select(-c(Station_Number))
+
+IHA_pst <- {{data_pst}} %>%
+  filter(Station_Number == {{stn}})%>% 
+  select(-c(Station_Number, Year))
+
+IHA_pre_expand_rows <- IHA_medians_pre[rep(1, nrow(IHA_pst)),]
+
+output <- ((IHA_pst  -  IHA_pre_expand_rows) /IHA_pre_expand_rows ) * 100
+
+percent_change <- merge(years_post, output, by.x = 0, by.y = 0) %>%
+  rename("Year" = "x")
+}
+
 ```
 
 
 ```{r}
+
+df_lst <- list()
+
+for (i in unique(IHA_medians_pre$Station_Number)) {
+
+calc <- calc_perc_change(IHA_medians_pre, IHA_pst, stn = i) #calc perc. change for all stns
+calc$i <- i #add i (stn # to the calc df)
+df_lst[[i]] <- calc #add calc df to the list
+
+}
+
+final_pc <- bind_rows(df_lst) %>%
+  rename("Station_Number" = "i")
+
+```
+
+##Graphs of calculated percent change ##
+```{r}
+
+final_pc %>%
+group_by(Station_Number) %>% 
+filter(Station_Number ==  '07BC002' | Station_Number == '07AF002' | Station_Number == '07AH001')  %>% 
+ggplot(aes(y=Reversals, x = Year, group = Station_Number, colour = Station_Number)) +
+geom_line(linewidth = 0.75) +
+    ylab("Percent Change, Reversals") +
+ggtitle("Percent Change from Median Reversal Values for 1975-2005") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_y_continuous(breaks = seq(-100, 100, 25)) 
+
+```
+
+##Graph of Post-Period##
+Plotting options:
+```{r}
+
+#graph combined df on one graph 
+IHA_pst %>%
+group_by(Station_Number) %>%
+  filter(Station_Number ==  '07BC002' | Station_Number == '07AF002' | Station_Number == '07AH001')  %>% #can filter/choose just a few stations
+ggplot(aes(y=Reversals, x = Year, group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = 0.75) +
+ggtitle("Reversals, 2006-2020 ") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r}
+
 ```
