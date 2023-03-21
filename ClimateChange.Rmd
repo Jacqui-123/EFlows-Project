@@ -2,7 +2,7 @@
 
 Median percent change in water flow for ~30 stations on the PAD, for two periods, 1975 - 2005, and 2006-2020. 
 
-These periods were chosen to assess changes in river flows that may be related to the impacts of climate change, while also controlling for the effects of the Bennet dam, installed and running from 1972.
+These periods were chosen to assess changes in river flows that may be related to the impacts of climate change, while also controlling for the effects of the Bennett dam, installed and running from 1972.
 
 ```{r, echo=FALSE, include = FALSE}
 library(png)
@@ -16,6 +16,9 @@ library(ggplot2)
 library(grid)
 library(gridExtra)
 library(viridis)
+library(sqldf)
+#install.packages("IHA", repos="http://R-Forge.R-project.org", dependencies = TRUE)
+
 ```
 
 
@@ -26,14 +29,13 @@ calc_IHA <- function(data){
 flow_data <-  {{data}} #%>%
 #  select(Date, Value)
   
-
 flow_data <- zoo(flow_data$Value, order.by = as.Date(as.character(flow_data$Date), format = "%d-%m-%Y"))
 ## Run IHA analyses
-group1_output <- group1(flow_data, year = "water", FUN = median)
-group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
-group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
-#group4_output <- group4(flow_data, year = "water")
-group5_output <- group5(flow_data, year = "water")
+group1_output <- group1(flow_data, year = "calendar", FUN = median)
+group2_output <- group2(flow_data, year = "calendar", mimic.tnc = TRUE)
+group3_output <- group3(flow_data, year = "calendar", mimic.tnc = FALSE)
+#group4_output <- group4(flow_data, year = "calendar")
+group5_output <- group5(flow_data, year = "calendar")
 
 ## Convert outputs
 group1_output <- as.data.frame(group1_output)
@@ -73,71 +75,217 @@ stns_all <- tidyhydat::hy_daily_flows(station_number = c('07AD002', '07AF002', '
 
 ```
 
-Keep only the 1 March - 31 October data from 1975 - 2005
+## Pre period (1975 - 2005 ) data tidying
+
 ```{r}
-stns_march_oct <- stns_all %>%
+#Keep only the 1 March - 31 October data from 1975 - 2005
+
+stns_pre <- stns_all %>%
 mutate(Date = as.Date(Date)) %>%
   filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) %>%
-  filter(year(Date) %in% c(1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005)) %>%
-  mutate(Date = format(Date,"%d-%m-%Y"))
+  filter(year(Date) %in% c(1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005)) 
+```
+
+
+```{r}
+#delete years with partial data 
+
+#Returns df with number of days of data in each year.
+count_pre <- stns_pre %>%
+group_by(STATION_NUMBER) %>%
+#make a complete set of days for each year 
+  complete(Date = seq.Date(as.Date("1975/3/1"), as.Date("2005/10/31"), by="day")) %>%
+  #make a separate column for year
+  mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y")) %>%
+  group_by(STATION_NUMBER, Year) %>%
+  count(is.na(Value)) %>%
+  rename("Is_NA" = "is.na(Value)")  %>%
+  pivot_wider(names_from = Is_NA, values_from = n) %>%
+  rename('Number_values' = "FALSE",
+         "Number_NAs" = "TRUE" )  %>%
+  select(-c(Number_NAs)) %>%
+  #na.omit(Number_values) %>%
+ mutate("Watershed" = str_extract(STATION_NUMBER, ".{2}(.)") )%>%
+mutate_if(is.numeric, ~replace(., is.na(.), 0))
+
+#select all stations with less than 235 days a year (max is 245 a year)
+pre_to_del <-  count_pre %>%
+filter(Number_values <= 235 )
+
+#get list of stns #s and years to delete, subtract these stations from stns_pre df.
+pre_to_del <- unique(pre_to_del$STATION_NUMBER)
 
 ```
 
-## Calculate IHA variables for 1975 - 2005 (pre-period)
+Remove the years with partial data from the pre-station data frame in prep for IHA calculations (from "pre_to_del")
+
+```{r}
+#remove years with partial data from pre df before calculations
+stns_pre <- stns_pre %>%
+mutate(Year = year(Date))  %>%
+    filter(!c(STATION_NUMBER == "07CD004" & Year == "1978"), 
+       !c(STATION_NUMBER == "07CD004" & Year == "1992"),
+       !c(STATION_NUMBER == "07CD004" & Year == "1993"),
+       !c(STATION_NUMBER == "07CD005" & Year == "1975"),
+       !c(STATION_NUMBER == "07DB001" & Year == "1991"),
+       !c(STATION_NUMBER == "07DB001" & Year == "1992"),
+       !c(STATION_NUMBER == "07DD002" & Year == "1991"),
+       !c(STATION_NUMBER == "07DD002" & Year == "1992"),
+       !c(STATION_NUMBER == "07EE007" & Year == "2005"),
+       !c(STATION_NUMBER == "07FD012" & Year == "1975"),
+       !c(STATION_NUMBER == "07LB002" & Year == "1977"),
+       !c(STATION_NUMBER == "07LE002" & Year == "1995"),
+       !c(STATION_NUMBER == "07LE002" & Year == "1998"),
+       !c(STATION_NUMBER == "07LE002" & Year == "2000"),
+       !c(STATION_NUMBER == "07MA003" & Year == "1975"),
+       !c(STATION_NUMBER == "07MA003" & Year == "1989")  
+       )%>%
+      mutate(Date = format(Date,"%d-%m-%Y")) 
+  
+
+```
+
+## IHA variables: Pre period (1975 - 2005)
+
 ```{r, warning= FALSE}
 #make a list of dfs- split by station number
-lst_stns_march_oct <- split(stns_march_oct, stns_march_oct$STATION_NUMBER )
+lst_stns_pre <- split(stns_pre, stns_pre$STATION_NUMBER )
 
 #apply calc_IHA function to all dfs in the list
-lst_stns_march_oct_IHA <- lapply(lst_stns_march_oct, calc_IHA)
+lst_stns_pre_IHA <- lapply(lst_stns_pre, calc_IHA)
 
 #Combine all IHA outputs into one df (unnlist the dfs)
 #make a "watershed" column for graphing later
-df_combined_IHA_pre <- bind_rows(lst_stns_march_oct_IHA, .id = "Station_Number") 
+IHA_pre <- bind_rows(lst_stns_pre_IHA, .id = "Station_Number") %>%
+  filter(Year != "2006")
+
+```
+
+
+```{r}
+
+#expand so that all years from 1975-2005 are present for all stations
+IHA_pre <- IHA_pre %>%
+  mutate(Year = as.integer(Year)) %>%
+    complete(Station_Number, Year = 1975:2005) %>%
+    mutate("Watershed" = substring(Station_Number, 3,3))
+
+
+```
+
+## Post period (2006 - 2020) data tidying
+
+```{r}
+
+#make df for 1 March - 31 October data from 2006-2020
+stns_pst <- stns_all %>%
+mutate(Date = as.Date(Date)) %>%
+  filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) %>%
+  filter(year(Date) %in% c(2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020)) 
+#make a separate column for year - this was done after the previous code was written, and was done in order to get rid of the Stn-year combos proceeding, ie don't need the code below if keeping all years and stations
+
+```
+
+
+```{r}
+#delete years with partial data 
+
+#Returns df with number of days of data in each year.
+post_count <- stns_pst %>%
+group_by(STATION_NUMBER) %>%
+#make a complete set of days for each year 
+  complete(Date = seq.Date(as.Date("2006/3/1"), as.Date("2020/10/31"), by="day")) %>%
+  #make a separate column for year
+  mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y")) %>%
+  group_by(STATION_NUMBER, Year) %>%
+  count(is.na(Value)) %>%
+  rename("Is_NA" = "is.na(Value)")  %>%
+  pivot_wider(names_from = Is_NA, values_from = n) %>%
+  rename('Number_values' = "FALSE",
+         "Number_NAs" = "TRUE" )  %>%
+  select(-c(Number_NAs)) %>%
+  #na.omit(Number_values) %>%
+ mutate("Watershed" = str_extract(STATION_NUMBER, ".{2}(.)") )%>%
+mutate_if(is.numeric, ~replace(., is.na(.), 0))
+
+```
+
+Get rid of all stations that have stns with less than 235 days of data - post data 
+
+```{r}
+#select all stations with less than 235 days a year (max is 245 a year)
+
+post_to_del <-  post_count %>%
+filter(Number_values <= 235 )
+
+#get a list of stns and years to delete
+post_to_del <- unique(post_to_del$STATION_NUMBER)
+
+
+```
+
+Remove the years with partial data from the post-station data frame in prep for IHA calculations (from "post_to_del")
+
+```{r}
+
+stns_pst <- stns_pst %>%
+mutate(Year = year(Date))  %>%
+#years to get rid of for each station number:
+filter(!c(STATION_NUMBER == "07CA006" & Year == "2013"), 
+       !c(STATION_NUMBER == "07CA006" & Year == "2014"),
+       !c(STATION_NUMBER == "07EE007" & Year == "2020"),
+       !c(STATION_NUMBER == "07EF001" & Year == "2019"),
+       !c(STATION_NUMBER == "07FD012" & Year == "2011"),
+       !c(STATION_NUMBER == "07KC001" & Year == "2009"),
+       !c(STATION_NUMBER == "07MB001" & Year == "2020"),
+       !c(STATION_NUMBER == "07NB001" & Year == "2013"),
+       !c(STATION_NUMBER == "07NB001" & Year == "2020") ) %>%
+      mutate(Date = format(Date,"%d-%m-%Y")) 
+
+```
+
+
+## IHA variables: Post period (2006 - 2020 )
+
+```{r, warning=FALSE}
+
+#make a list of dfs by station number
+stns_pst_lst <- split(stns_pst, stns_pst$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_pst_IHA <- lapply(stns_pst_lst, calc_IHA)
+
+IHA_pst <- bind_rows(lst_stns_pst_IHA, .id = "Station_Number") %>%
+  filter(Year != "2021")
 
 ```
 
 ##################################
 ## Calculate Percent Change 
 
+```{r}
+#expand so that all years from 2006-2020 are present for all stations
+IHA_pst <- IHA_pst %>%
+  mutate(Year = as.integer(Year)) %>%
+    complete(Station_Number, Year = 2006:2020) 
+```
+
 Make a df for the medians for the 1975-2005 period 
+
 ```{r}
 
 #find median of all IHA variables for 1975-2005
-IHA_medians_pre <- df_combined_IHA_pre %>%
+IHA_medians_pre <- IHA_pre %>%
   group_by(Station_Number) %>%
-  summarise(across(October:Reversals, median ))
+  summarise(across(January:Reversals, median )) ###Change to october if doing water year 
 
 ```
 
-Make a df of flow data for 2006-2020 ("post" period)
-```{r}
-
-#make df for 1 March - 31 October data from 2006-2020
-stns_all_pst <- stns_all %>%
-mutate(Date = as.Date(Date)) %>%
-  filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) %>%
-  filter(year(Date) %in% c(2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020)) %>%
-  mutate(Date = format(Date,"%d-%m-%Y"))
-
-```
-
-## Calculate IHA variables for post period
-```{r, warning=FALSE}
-
-#make a list of dfs by station number
-stns_all_pst_mar_oct <- split(stns_all_pst, stns_all_pst$STATION_NUMBER )
-
-#apply calc_IHA function to all dfs in the list
-lst_stns_mar_oct_IHA <- lapply(stns_all_pst_mar_oct, calc_IHA)
-
-IHA_pst <- bind_rows(lst_stns_mar_oct_IHA, .id = "Station_Number") 
-```
 
 Function to calculate the percent change for each station
 ```{r}
 
-calc_perc_change <- function(data_pre, data_pst, stn){ #, data_pst, stn
+calc_perc_change <- function(data_pre, data_pst, stn){
 
 years_post <- {{data_pst}}$Year
 
@@ -159,7 +307,7 @@ percent_change <- merge(years_post, output, by.x = 0, by.y = 0) %>%
 
 ```
 
-
+Calculate percent change
 ```{r}
 df_lst <- list()
 
@@ -170,8 +318,14 @@ calc$i <- i #add i (stn # to the calc df)
 df_lst[[i]] <- calc #add calc df to the list
 }
 
+```
+
+
+```{r}
+#expand list of dfs to one df, add watershed and rename columns 
+
 final_pc <- bind_rows(df_lst) %>%
-  rename("Station_Number" = "i") %>%
+ rename("Station_Number" = "i") %>%
   mutate("Watershed" = substring(Station_Number, 3,3))%>%
     rename("One_Day_Max" = "1 Day Max",
            "One_Day_Min" = '1 Day Min',
@@ -203,7 +357,7 @@ IHA_pst <- IHA_pst %>%
           "Ninety_Day_Min" = "90 Day Min")
 
 
-df_combined_IHA_pre <- df_combined_IHA_pre  %>%
+IHA_pre <- IHA_pre  %>%
    mutate("Watershed" = substring(Station_Number, 3,3)) %>%
     rename("One_Day_Max" = "1 Day Max",
            "One_Day_Min" = '1 Day Min',
@@ -224,7 +378,7 @@ df_combined_IHA_pre <- df_combined_IHA_pre  %>%
 
 #plot of all stations, coloured by watershed, on one graph
 plt_all <-  function(df, xvar, title ){
-ggplot(data = {{df}}, aes(y={{xvar}}, x = Year, group = Station_Number, colour = Watershed)) +
+ggplot(data = {{df}}, aes(y= {{xvar}}, x = factor(Year), group = Station_Number, colour = Watershed)) +
   geom_line(linewidth = 0.75) +
   geom_hline(yintercept = 0, linetype = "dotted") +
   scale_x_discrete(breaks = seq(1975, 2006, 2)) +
@@ -234,6 +388,12 @@ ggtitle({{title}}) +
 scale_colour_viridis(discrete = TRUE)
 }
 
+
+#ggplot(df, aes(x = factor(Year), y= Reversals, group = Station_Number, colour = Station_Number)) +
+ # geom_line() +
+  #scale_colour_viridis(discrete = TRUE)
+
+
 ```
 
 
@@ -242,7 +402,7 @@ scale_colour_viridis(discrete = TRUE)
 #plot of all stations, coloured and faceted by watershed
 
 plt_facet <- function(df, yvar, title){
-ggplot(data = {{df}}, aes(y={{yvar}}, x = Year, group = Station_Number, colour = Watershed)) +
+ggplot(data = {{df}}, aes(y={{yvar}}, x = factor(Year), group = Station_Number, colour = Watershed )) +
   geom_line(linewidth = 0.75) +
   facet_wrap(~Watershed) +
   geom_hline(yintercept = 0, linetype = "dotted") +
@@ -255,22 +415,83 @@ scale_colour_viridis(discrete = TRUE) +
   theme(axis.text.x = element_blank())
 }
 
-
 ```
 
 
 # Graphs
+
+## Graphs with just a few stations 
+
+```{r}
+
+
+final_pc %>%
+  filter(Watershed == "B") %>%
+ggplot( aes(y= Reversals, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = 0.75) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+ # scale_x_discrete(breaks = seq(1975, 2006, 2)) +
+  ylim(-50, 50) +
+   theme_classic() +
+ggtitle(" Percent Change for Reversals compared to 1975-2005  ") +
+  xlab("Year") +
+  ylab("Percent change, Reversals") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_viridis(discrete = TRUE) #+
+  #theme(legend.position = "None")
+
+
+
+```
+```{r}
+
+
+IHA_pre %>%
+  filter(Watershed == "B") %>%
+ggplot( aes(y= Reversals, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = 0.75) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+ scale_x_discrete(breaks = seq(1975, 2006, 2)) +
+  ylim(0, 80) +
+   theme_classic() +
+ggtitle("  Reversals 1975 - 2005 ") +
+  xlab("Year") +
+  ylab("Reversals") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_viridis(discrete = TRUE) #+
+  #theme(legend.position = "None")
+
+```
+```{r}
+
+IHA_pst %>%
+  filter(Watershed == "B") %>%
+ggplot( aes(y= Reversals, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = 0.75) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+ # scale_x_discrete(breaks = seq(1975, 2006, 2)) +
+  ylim(0, 80) +
+   theme_classic() +
+ggtitle("  Reversals 2006 - 2020 ") +
+  xlab("Year") +
+  ylab("Reversals") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_viridis(discrete = TRUE) #+
+  #theme(legend.position = "None")
+
+
+```
+
 
 ## Reversals
 
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
 
 ##Reversals, Pre: 1975-2005
-df <- df_combined_IHA_pre %>%
+df <- IHA_pre %>%
   filter(Year != "2006") 
 
 plt_facet(df, Reversals, "Reversals, 1975-2005" )
-
 
 ```
 
@@ -283,7 +504,6 @@ df <- IHA_pst %>%
   filter(Year != "2021") 
 
 plt_facet(df,Reversals, "Reversals, 2006-2020" )
-
 
 ```
 
@@ -303,7 +523,7 @@ plt_facet(df, Reversals, "Percent Change from Median Reversal Values for 1975-20
 
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
 ##1 Day Min, Pre: 1975-2005
-df <- df_combined_IHA_pre %>%
+df <- IHA_pre %>%
   filter(Year != "2006")
 
 plt_facet(df, One_Day_Min, "One Day Minimum, 1975-2005")
@@ -313,8 +533,11 @@ plt_facet(df, One_Day_Min, "One Day Minimum, 1975-2005")
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
 ##1 Day Min, 2006-2020
 df <- IHA_pst %>%
-  filter(Year != "2021") 
+  filter(Year != "2021")
+
 plt_facet(df, One_Day_Min, "One Day Minimum, 2006-2020")
+
+
 ```
 
 
@@ -331,10 +554,11 @@ plt_facet(df, One_Day_Min, "Percent Change from Median One Day Minimum Values fo
 
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
 ##1 Day Max, Pre: 1975-2005
-df <- df_combined_IHA_pre %>%
+df <- IHA_pre %>%
   filter(Year != "2006")
 
 plt_facet(df, One_Day_Max, "1 Day Max, 1975-2005")
+
 ```
 
 
@@ -360,7 +584,7 @@ plt_facet(df, One_Day_Max, "Percent Change from Median 1 Day Maximum Values for 
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
 ##7 Day Min, Pre: 1975-2005
 
-df <- df_combined_IHA_pre %>%
+df <- IHA_pre %>%
   filter(Year != "2006")
 
 plt_facet(df, Seven_Day_Min, "7 Day Min, 1975-2005")
@@ -389,7 +613,7 @@ plt_facet(df, Seven_Day_Min, "Percent Change from Median 7 Day Minimum Values fo
 
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
 ##7 Day Max, Pre: 1975-2005
-df <- df_combined_IHA_pre %>%
+df <- IHA_pre %>%
   filter(Year != "2006")
 
 plt_facet(df, Seven_Day_Max, "7 Day Max, 1975-2005")
@@ -417,7 +641,7 @@ plt_facet(df, Seven_Day_Max, "Percent Change from Median 7 Day Maximum Values fo
 
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
 ##30 Day Min, Pre: 1975-2005
-df <- df_combined_IHA_pre %>%
+df <- IHA_pre %>%
   filter(Year != "2006")
 
 plt_facet(df, Thirty_Day_Min, "30 Day Min, 1975-2005")
@@ -445,7 +669,7 @@ plt_facet(df, Thirty_Day_Min, "Percent Change from Median 30 Day Minimum Values 
 
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
 ##30 Day Max, Pre: 1975-2005
-df <- df_combined_IHA_pre %>%
+df <- IHA_pre %>%
   filter(Year != "2006")
 
 plt_facet(df, Thirty_Day_Max, "30 Day Max, 1975-2005")
@@ -473,23 +697,33 @@ plt_facet(df, Thirty_Day_Max, "Percent Change from Median 30 Day Maximum Values 
 
 ```{r}
 
+```
 
 
+
+```{r}
+
+	
+	
+```
+
+```{r}
 
 ```
 
 
 ```{r}
 
-
 ```
 
 
 ```{r}
 
-
 ```
 
+
+```{r}
+```
 
 ```{r, include = FALSE, echo = FALSE}
 #ignore this code, keep just in case though
@@ -498,12 +732,12 @@ plt_facet(df, Thirty_Day_Max, "Percent Change from Median 30 Day Maximum Values 
 
 #make a graphing function to plot one at a time
 
-#plt <- function(data, variable) {
-#ggplot() +
-#  geom_line(data = {{data}}, aes(x = Year, y = {{variable}}), group = 1, colour = #"red", linewidth = 0.75)  + 
- #     geom_point() +
-#        scale_x_discrete(breaks = seq(1975, 2006, 2))
-#}
+plt <- function(data, variable) {
+ggplot() +
+  geom_line(data = {{data}}, aes(x = Year, y = {{variable}}), group = 1, colour = "red", linewidth = 0.75)  + 
+      geom_point() +
+        scale_x_discrete(breaks = seq(1975, 2006, 2))
+}
 
 #make a list of all plot objects
 #pltlist <- lapply(lst_stns_march_oct_IHA, plt) #only works if plt function has x value already in it, can't figure out how to use lapply and choosing a diff x value
@@ -512,4 +746,3 @@ plt_facet(df, Thirty_Day_Max, "Percent Change from Median 30 Day Maximum Values 
 
 
 ```{r}
-
