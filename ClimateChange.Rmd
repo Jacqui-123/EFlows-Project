@@ -420,69 +420,168 @@ scale_colour_viridis(discrete = TRUE) +
 
 # Graphs
 
-## Graphs with just a few stations 
+## Example graphs with a few stations
+
+### Reversals
 
 ```{r}
-
+pal <- c("#E69F00", "#56B4E9","#999999", "#009E73")
 
 final_pc %>%
-  filter(Watershed == "B") %>%
-ggplot( aes(y= Reversals, x = factor(Year), group = Station_Number, colour = Station_Number)) +
-  geom_line(linewidth = 0.75) +
+  #filter(Watershed == "B") %>%
+filter(Station_Number == "07BK007" | Station_Number == "07BE001" | Station_Number == "07CD005") %>%
+ggplot(aes(y= Reversals, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = .75, linetype = "F1") +
+  annotate(geom = "text", x = 14, y = -25, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+  annotate(geom = "text", x = 14, y = 14, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+    annotate(geom = "text", x = 12, y = 45, label = "Clearwater River, \n Fort McMurray", colour = "#999999") + #07CD005
   geom_hline(yintercept = 0, linetype = "dotted") +
  # scale_x_discrete(breaks = seq(1975, 2006, 2)) +
-  ylim(-50, 50) +
+ ylim(-60, 60) +
    theme_classic() +
-ggtitle(" Percent Change for Reversals compared to 1975-2005  ") +
-  xlab("Year") +
-  ylab("Percent change, Reversals") +
+ggtitle("Percent Change for Reversals Compared to 1975-2005") +
+  xlab(" ") +
+  ylab("Reversals (Percent change) ") +
   theme(plot.title = element_text(hjust = 0.5) ) +
-scale_colour_viridis(discrete = TRUE) #+
-  #theme(legend.position = "None")
+scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
 
 
 
 ```
-```{r}
+
+```{r, fig.width = 8, fig.height= 5}
 
 
-IHA_pre %>%
-  filter(Watershed == "B") %>%
-ggplot( aes(y= Reversals, x = factor(Year), group = Station_Number, colour = Station_Number)) +
-  geom_line(linewidth = 0.75) +
-  geom_hline(yintercept = 0, linetype = "dotted") +
- scale_x_discrete(breaks = seq(1975, 2006, 2)) +
-  ylim(0, 80) +
-   theme_classic() +
-ggtitle("  Reversals 1975 - 2005 ") +
-  xlab("Year") +
+IHA_both <- dplyr::bind_rows(IHA_pre, IHA_pst)
+
+
+pal <- c("#E69F00", "#56B4E9","#999999", "#009E73")
+
+IHA_both %>%
+  #filter(Watershed == "B") %>%
+filter(Station_Number == "07BK007" | Station_Number == "07BE001" | Station_Number == "07CD005") %>%
+ggplot(aes(y= Reversals, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = .75, linetype = "F1") +
+  annotate(geom = "text", x = 38, y = 73, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+ annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+   annotate(geom = "text", x = 43, y = 25, label = "Clearwater River, \n Fort McMurray", colour = "#999999") + #07CD005
+  #geom_hline(yintercept = 0, linetype = "dotted") +
+scale_x_discrete(breaks = seq(1974, 2020, 2)) +
+ylim(0, 80) +
+theme_classic() +
+ggtitle("Reversals: 1975-2020") +
+  xlab(" ") +
   ylab("Reversals") +
   theme(plot.title = element_text(hjust = 0.5) ) +
-scale_colour_viridis(discrete = TRUE) #+
-  #theme(legend.position = "None")
+scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
+
 
 ```
+
+### One Day Min
 ```{r}
 
-IHA_pst %>%
-  filter(Watershed == "B") %>%
-ggplot( aes(y= Reversals, x = factor(Year), group = Station_Number, colour = Station_Number)) +
-  geom_line(linewidth = 0.75) +
+pal <- c("#E69F00", "#56B4E9","#999999", "#009E73")
+
+final_pc %>%
+  #filter(Watershed == "B") %>%
+filter(Station_Number == "07BK007" | Station_Number == "07BE001" | Station_Number == "07CD005") %>%
+ggplot(aes(y= One_Day_Max, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = .75, linetype = "F1") +
+  annotate(geom = "text", x = 6, y = 148, label = "Athabasca \n River, \n Athabasca", colour = "#E69F00") + #07BE001
+  annotate(geom = "text", x = 13.5, y = 195, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+    annotate(geom = "text", x = 14, y = -30, label = "Clearwater River, \n Fort McMurray", colour = "#999999") + #07CD005
   geom_hline(yintercept = 0, linetype = "dotted") +
  # scale_x_discrete(breaks = seq(1975, 2006, 2)) +
-  ylim(0, 80) +
+ ylim(-100, 200) +
    theme_classic() +
-ggtitle("  Reversals 2006 - 2020 ") +
-  xlab("Year") +
-  ylab("Reversals") +
+ggtitle("Percent Change for One Day Maximum Compared to 1975-2005") +
+  xlab(" ") +
+  ylab("One Day Max (Percent change)") +
   theme(plot.title = element_text(hjust = 0.5) ) +
-scale_colour_viridis(discrete = TRUE) #+
-  #theme(legend.position = "None")
-
+scale_colour_manual(values = pal) +
+  theme(legend.position = "None")
 
 ```
 
 
+```{r, fig.height= 5, fig.width = 8}
+pal <- c("#E69F00", "#56B4E9","#999999", "#009E73")
+
+IHA_both %>%
+  #filter(Watershed == "B") %>%
+filter(Station_Number == "07BK007" | Station_Number == "07BE001" | Station_Number == "07CD005") %>%
+ggplot(aes(y= One_Day_Max, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = .75, linetype = "F1") +
+annotate(geom = "text", x = 42, y = 3000, label = "Athabasca \n River, \n Athabasca", colour = "#E69F00") + #07BE001
+annotate(geom = "text", x = 42, y = 500, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+annotate(geom = "text", x = 35, y = 500, label = "Clearwater River, \n Fort McMurray", colour = "#999999") + #07CD005
+ # geom_hline(yintercept = 0, linetype = "dotted") +
+scale_x_discrete(breaks = seq(1974, 2020, 2)) +
+ ylim(0, 5000) +
+   theme_classic() +
+ggtitle("One Day Maximum: 1975-2020") +
+  xlab(" ") +
+  ylab("One Day Max") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_manual(values = pal) +
+  theme(legend.position = "None")
+
+
+```
+
+### One Day Max
+
+```{r}
+
+final_pc %>%
+  #filter(Watershed == "B") %>%
+filter(Station_Number == "07BK007" | Station_Number == "07BE001" | Station_Number == "07CD005") %>%
+ggplot(aes(y= One_Day_Min, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = .75, linetype = "F1") +
+  annotate(geom = "text", x = 6, y = -60, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+  annotate(geom = "text", x = 14, y = 205, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+    annotate(geom = "text", x = 14, y = -40, label = "Clearwater River, \n Fort McMurray", colour = "#999999") + #07CD005
+  geom_hline(yintercept = 0, linetype = "dotted") +
+ # scale_x_discrete(breaks = seq(1975, 2006, 2)) +
+ ylim(-100, 250) +
+   theme_classic() +
+ggtitle("Percent Change for One Day Minimum Compared to 1975-2005") +
+  xlab(" ") +
+  ylab("One Day Min (Percent change) ") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
+
+```
+
+
+```{r, fig.width= 8, fig.height= 5}
+
+pal <- c("#E69F00", "#56B4E9","#999999", "#009E73")
+
+IHA_both %>%
+  #filter(Watershed == "B") %>%
+filter(Station_Number == "07BK007" | Station_Number == "07BE001" | Station_Number == "07CD005") %>%
+ggplot(aes(y= One_Day_Min, x = factor(Year), group = Station_Number, colour = Station_Number)) +
+  geom_line(linewidth = .75, linetype = "F1") +
+  annotate(geom = "text", x = 38, y = 125, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+ annotate(geom = "text", x = 43, y = 19 , label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+   annotate(geom = "text", x = 43, y = 65, label = "Clearwater River, \n Fort McMurray", colour = "#999999") + #07CD005
+  #geom_hline(yintercept = 0, linetype = "dotted") +
+scale_x_discrete(breaks = seq(1974, 2020, 2)) +
+ylim(0, 150) +
+theme_classic() +
+ggtitle("One Day Minimum: 1975-2020") +
+  xlab(" ") +
+  ylab("One Day Min") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
+
+```
 ## Reversals
 
 ```{r, echo = FALSE, fig.height= 6, fig.width= 8}
