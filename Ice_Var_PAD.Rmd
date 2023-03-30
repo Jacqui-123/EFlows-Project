@@ -1,0 +1,384 @@
+# Freeze and Thaw Timing for Sites on the Peace-Athabasca Delta (PAD) 
+
+Data is from hydrometric stations managed by the Water Survey of Canada. Stations tidied from database using tidyhydat in R. 
+
+Workflow for the calculations and graphing for the freeze-up dates, ice break-up dates, and continuous ice coverage for a couple of stations on the PAD. 
+
+Note: Timing of Spring freshet initiation (1.5 x 16-day running mean) calculations are currently in progress. See github: https://github.com/Jacqui-123/EFlows-Project 
+ 
+ 
+```{r, warning= FALSE, include= FALSE}
+library(png)
+library(reticulate)
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(viridis)
+library(sqldf)
+library(caTools)
+library(dataRetrieval)
+#install.packages("IHA", repos="http://R-Forge.R-project.org", dependencies = TRUE)
+
+```
+
+1) get data 
+
+```{r}
+
+stn <- tidyhydat::hy_daily_flows(station_number = c('07BE001', '07HA001'))
+
+#all years greater than 1971 (only seasonal data before 1971)
+stn <- stn %>%
+  mutate(Date = ymd(Date), Year = format_ISO8601(Date, precision = "y")) %>%
+  filter(Year >= 1971)
+
+```
+
+```{r, echo = FALSE, eval = FALSE} 
+#test stations- just one year
+stn_07BK007_1972 <- stn_07BK007 %>%
+  #get a year column
+mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y")) %>%
+  #just 1972 for now 
+  filter(Year == "1972")
+
+```
+
+
+```{r, echo = FALSE}
+#Function to Calculate Day of the Year
+
+#function sequences by number of days in each water year
+  
+day_of_year_calc <- function(data){
+  
+  df <- data.frame(waterYear = character(), sequence = character())
+  
+  for (i in unique({{data}}$waterYear)){
+    df_subset <- {{data}}[{{data}}$waterYear == i,]
+    days <- seq(1:nrow(df_subset))
+    temp_df <- data.frame(waterYear = i, day_of_year = days)
+    df <- rbind(df, temp_df)
+  }
+    df2 <- cbind(df, {{data}}) 
+    df3 <- df2[, !duplicated(colnames(df2))]
+
+  return(df3)
+}
+
+```
+
+2) Calculate water year and day of the water year 
+```{r} 
+
+#add water year
+stn_wy <- addWaterYear(stn) %>%
+    mutate(waterYear = as.character(waterYear)) %>%
+  select(-Year)
+
+#add day of year
+stn_wy_doy <- day_of_year_calc(stn_wy)
+
+```
+
+
+```{r, echo = FALSE}
+#Group 1 Function: Ice coverage  
+
+Group_1_ice_cover <- function(data) {
+#function returns a df for the length of ice coverage, per calendar year
+
+  lst <- list()
+
+    for (i in unique({{data}}$waterYear)) {
+  
+      length_B_date  <- max(rle({{data}}$Symbol[{{data}}$waterYear == i] == "B")[[1]]) 
+  #append each value to a list
+      length_B_date <- length_B_date - 1
+      lst[[i]] <- length_B_date
+    }
+  
+  Ice_coverage_wy <- data.frame(waterYear = names(lst), Ice_coverage_wy = unlist(lst))
+  rownames(Ice_coverage_wy) <-NULL
+  return(Ice_coverage_wy)
+  
+}
+
+#test
+#Ice_coverage_stn07bk007 <- Group_1_ice_cover(stn_07BK007_wy_doy)
+
+#edit function so that it takes water year and calendar year arguments
+
+```
+
+
+```{r, echo= FALSE}
+#Group 2 Function: Freeze and Thaw Dates
+
+Group_2_freeze_thaw <- function(data) {
+  #This function calculates the freeze and thaw dates and their flow values, using the     longest consecutive run of "B" Symbols in the df
+
+  start_date_lst <- list()
+  end_date_lst <- list()
+  start_flow_lst <- list()
+  end_flow_lst <- list()
+  start_doy_lst <- list()
+  end_doy_lst <- list()
+
+  for (i in unique({{data}}$waterYear)){
+ 
+    df_subset <- {{data}}[{{data}}$waterYear == i,]
+  
+    #calc rle for B symbol
+    rle_m = rle(df_subset$Symbol == "B")
+  
+    #find index for max run of B symbols
+    max_run_index <- which.max(rle_m$lengths)
+  
+    #find end start and index of max run of B symbols
+    end <- cumsum(rle_m$lengths)[max_run_index]
+    start <- end - rle_m$lengths[max_run_index] +1
+
+    #find date at end, start index of the max run 
+    date_end = df_subset$Date[end]
+    date_start = df_subset$Date[start]
+  
+    #find flow at end, start index
+    flow_end = df_subset$Value[end]
+    flow_start = df_subset$Value[start]
+    
+    #find doy at end, start index
+    doy_end = df_subset$day_of_year[end]
+    doy_start = df_subset$day_of_year[start]
+    
+    #append dates to the list
+    start_date_lst[[i]] <- date_start
+    end_date_lst[[i]] <- date_end
+  
+    #append flows to the list
+    start_flow_lst[[i]] <- flow_start
+    end_flow_lst[[i]] <- flow_end
+    
+    #append doy to the list
+    start_doy_lst[[i]] <- doy_start
+    end_doy_lst[[i]] <- doy_end
+    
+  }
+
+    Freeze_Date <- as.Date(unlist(start_date_lst))
+    Thaw_Date <- as.Date(unlist(end_date_lst))
+    Flow_Freeze <- unlist(start_flow_lst)
+    Flow_Thaw <- unlist(end_flow_lst)
+    Freeze_DOY <-unlist(start_doy_lst)
+    Thaw_DOY <- unlist(end_doy_lst)
+
+    df <- cbind.data.frame(Freeze_Date,Freeze_DOY,Flow_Freeze,Thaw_Date,Thaw_DOY, Flow_Thaw)
+
+    Ice_coverage_dates_flow <- rownames_to_column(df, "waterYear")
+    return(Ice_coverage_dates_flow)
+}
+
+#test
+#Fr_thaw_stn07bk007 <- Group_2_freeze_thaw(stn_07BK007_wy_doy)
+#edit function so that it takes water year and calendar year arguments
+#edit function for error checking
+
+```
+
+3) Calculate and tidy Ice Variables( Group 1 and Group 2) for each station
+```{r}
+#make a list of dfs- split by station number
+stn_wy_doy_split <- split(stn_wy_doy, stn_wy_doy$STATION_NUMBER )
+
+#apply ice variable function to all dfs in the list
+stn_wy_doy_g1 <- lapply(stn_wy_doy_split, Group_1_ice_cover)
+stn_wy_doy_g2 <- lapply(stn_wy_doy_split, Group_2_freeze_thaw)
+
+#Combine all outputs into one df
+output1 <- bind_rows(stn_wy_doy_g1, .id = "Station_Number") 
+output2 <- bind_rows(stn_wy_doy_g2, .id = "Station_Number")
+
+df_final <- merge(output1, output2)
+
+
+#Get rid of first and last years, they are always wrong when calculated using water year
+df_final<- df_final %>%
+  filter(waterYear >= 1972 & waterYear < 2021)
+
+head(df_final, 5)
+
+```
+
+
+```{r, echo = FALSE, eval = FALSE}
+
+Ice_coverage <- Group_1_ice_cover(stn_wy_doy)
+Fr_thaw <- Group_2_freeze_thaw(stn_wy_doy)
+
+#combine results df and remove duplicate rows
+Ice_calc_complete <- cbind(Fr_thaw, Ice_coverage)
+Ice_calc_complete<- Ice_calc_complete[, !duplicated(colnames(Ice_calc_complete))]
+
+#remove first row,it's always incomplete due to water year cycle
+Ice_calc_complete <- Ice_calc_complete[-1,] 
+#and remove last year too
+
+#Get rid of first and last years, they are always wrong when calculated using water year
+df_final <- df_final[-1,]
+x <- as.numeric(nrow(df_final))
+df_final <- df_final[-x,]
+
+
+```
+
+## Days of Total continuous ice coverage per water year
+
+```{r, echo = FALSE}
+
+pal <- c("#E69F00", "#56B4E9","#999999", "#009E73")
+
+df_final %>%
+ggplot(aes(y= Ice_coverage_wy, x = factor(waterYear), group = Station_Number, colour = Station_Number )) +
+  geom_line(linewidth = .75, linetype = "F1") +
+    annotate(geom = "text", x = 45, y = 195, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+  annotate(geom = "text", x = 45, y = 62, label = "Peace River, \n AB", colour = "#56B4E9") +    #07HA001
+ scale_x_discrete(breaks = seq(1965, 2021, 5)) +
+ ylim(0, 200) +
+   theme_classic() +
+#ggtitle("Days of Total Continuous Ice Coverage per Water Year") +
+  xlab(" ") +
+  ylab("Days of Ice Coverage ") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
+
+```
+
+## Timing of yearly Freeze-up dates by day of water year
+("Higher" freeze date means the river freezes later in the season)
+
+```{r, echo = FALSE}
+
+pal <- c("#E69F00", "#56B4E9","#999999", "#009E73")
+
+df_final %>%
+ggplot(aes(y= Freeze_DOY, x = factor(waterYear), group = Station_Number, colour = Station_Number )) +
+  geom_line(linewidth = .75, linetype = "F1") +
+    annotate(geom = "text", x = 45, y = 40, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+  annotate(geom = "text", x = 45, y = 210, label = "Peace River, \n AB", colour = "#56B4E9") +    #07HA001
+ scale_x_discrete(breaks = seq(1965, 2021, 5)) +
+ ylim(0, 300) +
+   theme_classic() +
+#ggtitle("Freeze Date: Day of the Water Year ") +
+  xlab(" ") +
+  ylab("Freeze Date (day of year) ") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
+
+```
+
+## Timing of yearly Thaw dates by day of water year
+("lower" date means the river thaws earlier in the season)
+
+```{r, echo =  FALSE}
+
+pal <- c("#E69F00", "#56B4E9","#999999", "#009E73")
+
+df_final %>%
+ggplot(aes(y= Thaw_DOY, x = factor(waterYear), group = Station_Number, colour = Station_Number )) +
+  geom_line(linewidth = .75, linetype = "F1") +
+    annotate(geom = "text", x = 45, y = 450, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+  annotate(geom = "text", x = 45, y = 325, label = "Peace River, \n AB", colour = "#56B4E9") +    #07HA001
+ scale_x_discrete(breaks = seq(1965, 2021, 5)) +
+ ylim(300, 450) +
+   theme_classic() +
+#ggtitle("Thaw Date: Day of the Water Year ") +
+  xlab(" ") +
+  ylab("Thaw Date (day of year) ") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
+
+```
+
+```{r, echo = FALSE, eval = FALSE}
+
+# calculation for a running mean
+
+#find the index of March 1... 
+
+start_index <- which(stn_07BK007_1972$Date == "1972-03-01")
+
+start_date <- as.Date(paste0("-", "03-01"), format = "%Y-%m-%d")
+
+years <- unique(format(stn_07BK007_1972$Date, "%Y"))
+
+start_index <- which(stn_07BK007_1972$Date == start_date)
+
+rollmean <- rollmean(stn_07BK007_1972$Value[84:99], k = 16)
+
+
+for (i in years) { 
+
+if (stn_07BK007_1972$Value[94] > 1.5*rollmean){ 
+  
+  print("True")
+  else( 
+    print("FALSE") )
+  
+} }
+
+From March 1-16, March 17- April 2, etc until end of June, take 16 day running mean. As soon as the daily flow is > 1.5 that mean, that is the onset of freshet. 
+
+#running mean - from doy == 60, calculate 16 day running mean
+#OR just get rid of anything where doy <= 60
+
+stn_07BK007_wy_doy
+  rollmean(df$Value, k = 16)
+  ?rollmean
+  
+
+temp <- stn_07BK007_wy_doy %>%
+  filter(waterYear == '1972') %>%
+  filter(day_of_year > 60) %>%
+  na.omit()
+
+#do this... then when it stops being true print the index?
+x <- rollmean(temp$Value, k = 16) 
+
+x[3]
+
+  
+library(data.table)
+data.table::frollmean(temp$Value, 16)
+
+
+####
+window <- 
+
+ for (i in unique(temp$waterYear)) {
+   
+   
+   mn <- mean(temp$Value[1:16])
+   
+   if mn >= (temp$Value[17]) *1.5
+   
+   
+ }
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
