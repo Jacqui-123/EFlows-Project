@@ -14,9 +14,7 @@ library(dataRetrieval)
 
 
 day_of_year_calc <- function(data){
-  #function sequences by number of days in each water year
-  #column title must be in "waterYear",  use addWaterYear()
-
+  
   df <- data.frame(waterYear = character(), sequence = character())
   
   for (i in unique({{data}}$waterYear)){
@@ -25,14 +23,14 @@ day_of_year_calc <- function(data){
     temp_df <- data.frame(waterYear = i, day_of_year = days)
     df <- rbind(df, temp_df)
   }
+  df2 <- cbind(df, {{data}}) 
+  df3 <- df2[, !duplicated(colnames(df2))]
   
-  return(df)
+  return(df3)
 }
 
 #to do: 
-#add if/else for water year vs cal year and alternative col titles
-#add code to remove duplicate col names resulting from rbind join
-
+#add if/else for water year vs cal year and create input for alternative col titles
 
 
 #######Group 1: Total Continuous Ice Coverage#####
@@ -56,10 +54,8 @@ Group_1_ice_cover <- function(data) {
   return(Ice_coverage_wy)
   
 }
-
 #to do: 
 #add if/else for water year vs cal year and alternative col titles
-
 
 
 
