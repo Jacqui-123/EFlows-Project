@@ -205,7 +205,6 @@ output2 <- bind_rows(stn_wy_doy_g2, .id = "Station_Number")
 
 df_final <- merge(output1, output2)
 
-
 #Get rid of first and last years, they are always wrong when calculated using water year
 df_final<- df_final %>%
   filter(waterYear >= 1972 & waterYear < 2021)
@@ -307,78 +306,81 @@ scale_colour_manual(values = pal)  +
 
 ```
 
-```{r, echo = FALSE, eval = FALSE}
 
-# calculation for a running mean
-
-#find the index of March 1... 
-
-start_index <- which(stn_07BK007_1972$Date == "1972-03-01")
-
-start_date <- as.Date(paste0("-", "03-01"), format = "%Y-%m-%d")
-
-years <- unique(format(stn_07BK007_1972$Date, "%Y"))
-
-start_index <- which(stn_07BK007_1972$Date == start_date)
-
-rollmean <- rollmean(stn_07BK007_1972$Value[84:99], k = 16)
-
-
-for (i in years) { 
-
-if (stn_07BK007_1972$Value[94] > 1.5*rollmean){ 
-  
-  print("True")
-  else( 
-    print("FALSE") )
-  
-} }
-
-From March 1-16, March 17- April 2, etc until end of June, take 16 day running mean. As soon as the daily flow is > 1.5 that mean, that is the onset of freshet. 
-
-#running mean - from doy == 60, calculate 16 day running mean
-#OR just get rid of anything where doy <= 60
-
-stn_07BK007_wy_doy
-  rollmean(df$Value, k = 16)
-  ?rollmean
-  
-
-temp <- stn_07BK007_wy_doy %>%
-  filter(waterYear == '1972') %>%
-  filter(day_of_year > 60) %>%
-  na.omit()
-
-#do this... then when it stops being true print the index?
-x <- rollmean(temp$Value, k = 16) 
-
-x[3]
-
-  
-library(data.table)
-data.table::frollmean(temp$Value, 16)
-
-
-####
-window <- 
-
- for (i in unique(temp$waterYear)) {
-   
-   
-   mn <- mean(temp$Value[1:16])
-   
-   if mn >= (temp$Value[17]) *1.5
-   
-   
- }
-
-```
-
-
+#Rolling 16 day mean
 ```{r}
+
+#for one year
+rollmn <- rollmean(stn_07BK007_1972$Value, k = 16, width = 16)
+rollmnvalue <- rollmn[1] #0.81
+rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
+x <- stn_07BK007_1972$Value[16] #0.654
+
+#when x > rollmnvalue1.5, freshet starts. #no freshet yet
+
 
 ```
 
 ```{r}
 
+#for one year, from March 1 onward
+#stn_07BK007_1972_summer <- stn_07BK007_1972 %>%
+ # filter(Date >= "1972-03-01")
+
+index <- 0
+f_index <- 16
+date <- list()
+flow <- list()
+#df <- as.data.frame(c())
+
+for (i in unique(stn_07BK007_wy_doy$waterYear)) { #first loop
+  #subset data by year, resetting at each year
+  index <- 0 
+  f_index <- 16 
+  df_subset <- stn_07BK007_wy_doy[stn_07BK007_wy_doy$waterYear == i,]
+
+  #calc rolling 16 day mean
+  rollmn <- rollmean(df_subset$Value, k = 16, width = 16)
+  
+    for (i in rollmn) { #second loop
+      #increment index
+      index <- index + 1
+      f_index <- f_index + 1
+      
+      #find rolling mean value at the index and multiply by 1.5
+      rollmnvalue <- rollmn[index] #roll mean = 0.81
+      rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
+    
+      #get the flow value at that index
+      flowvalue <- df_subset$Value[f_index] #flow = 0.654
+  
+        if (flowvalue > rollmnvalue1.5) { #third loop
+        #append date, flow value to a list here
+        dt <- df_subset$Date[f_index]
+        fl <- df_subset$Value[f_index]
+        date <- dt
+        flow <- fl
+        print(dt)
+        print(fl)
+        print("end")
+        Freshet_Date <- as.Date(unlist(date))
+        Freshet_Flow <- unlist(flow)
+        df <- cbind.data.frame(Freshet_Date, Freshet_Flow)
+        return(df)
+        break
+        }
+      
+    }
+  
+}
+
+
+# the problem now is that it only saves the first value, and exits the loop
+
+
+```
+
+
+
+```{r}
 ```
