@@ -14,7 +14,7 @@ library(dataRetrieval)
 
 
 day_of_year_calc <- function(data){
-  
+  #calculates the day of the water year 
   df <- data.frame(waterYear = character(), sequence = character())
   
   for (i in unique({{data}}$waterYear)){
@@ -67,6 +67,8 @@ Group_2_freeze_thaw <- function(data) {
   #based on longest consecutive run of "B" Symbols in the df
   #column title must be in "waterYear",  use addWaterYear()
   #col title must be in "day_of_year", use above function
+  #col titles must be "Date", "Value" as in tidyhydat
+  
   
   start_date_lst <- list()
   end_date_lst <- list()
@@ -132,3 +134,78 @@ Group_2_freeze_thaw <- function(data) {
 #to do: 
 #add if/else for water year vs cal year and alternative col titles for water year
 
+
+#######Group 3: Onset of Freshet#####
+
+
+Group_3_freshet <- function(data) {
+  
+  #This function calculates the onset of freshet based on the 
+  #16 day running mean beginning March 1
+  #column titles must be in "waterYear",  use addWaterYear()
+  #col title must be in "day_of_year", use above function
+  #col titles must be "Date", "Value" as in tidyhydat
+  
+  index <- 0
+  f_index <- 16
+  date_lst <- list()
+  flow_lst <- list()
+  stn_nu <- list()
+  doy_lst <- list()
+  
+  for (i in unique({{data}}$waterYear)) { #first loop
+    #subset data by year, resetting at each year
+    index = 0  
+    f_index = 16 
+    df_subset <- {{data}}[{{data}}$waterYear == i,]
+    df_subset <- df_subset %>%
+      mutate(Date = as.Date(Date)) %>%
+      filter(month(Date) %in% c(3,4,5,6))
+    
+    #calc rolling 16 day mean
+    rollmn <- rollmean(df_subset$Value, k = 16, width = 16)
+    #rollmn <- as.data.frame(rollmn)
+    
+    for (j in rollmn) { #second loop
+      #increment index
+      index = index + 1
+      f_index = f_index + 1
+      
+      #find rolling mean value at the index and multiply by 1.5
+      rollmnvalue <- rollmn[index] #roll mean = 0.81
+      rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
+      
+      #get the flow value at that index
+      flowvalue <- df_subset$Value[f_index] #flow = 0.654
+      
+      if (flowvalue > rollmnvalue1.5 & f_index < 366 ) { #third loop
+        #append date, flow value to a list using the index numbers
+        dt <- df_subset$Date[f_index]
+        fl <- df_subset$Value[f_index]
+        st <- df_subset$STATION_NUMBER[f_index]
+        doy <- df_subset$day_of_year[f_index]
+        # print(dt) 
+        #  print(fl)
+        #  print("end") 
+        date_lst[[i]] <- dt 
+        flow_lst[[i]] <- fl 
+        stn_nu[[i]] <- st
+        doy_lst[[i]] <- doy
+        Freshet_Date <- as.Date(unlist(date_lst))
+        Freshet_Flow <- unlist(flow_lst)
+        Station_Number <- unlist(stn_nu)
+        Day_of_year <- unlist(doy_lst)
+        df <- cbind.data.frame(Station_Number, Freshet_Date, Day_of_year, Freshet_Flow)
+        break
+      }
+      
+    }
+    
+  }
+  Freshet_dates_flow <- rownames_to_column(df, "waterYear")
+  return(Freshet_dates_flow)
+}
+
+#to do/debug: 
+#add if/else for water year vs cal year and alternative col titles for water year
+#how to handle missing years
