@@ -2,10 +2,10 @@
 
 Data is from hydrometric stations managed by the Water Survey of Canada. Stations tidied from database using tidyhydat in R. 
 
-Workflow for the calculations and graphing for the freeze-up dates, ice break-up dates, and continuous ice coverage for a couple of stations on the PAD. 
+Workflow for the calculations and graphing for the freeze-up dates, freshet onset, and continuous ice coverage for a couple of stations on the PAD. 
 
-Note: Timing of Spring freshet initiation (1.5 x 16-day running mean) calculations are currently in progress. See github: https://github.com/Jacqui-123/EFlows-Project 
- 
+Functions for these calculations can be found in "Ice_Variable_Functions.R"
+
  
 ```{r, warning= FALSE, include= FALSE}
 library(png)
@@ -26,7 +26,7 @@ library(dataRetrieval)
 
 ```
 
-1) get data 
+#1) get data 
 
 ```{r}
 
@@ -36,16 +36,6 @@ stn <- tidyhydat::hy_daily_flows(station_number = c('07BE001', '07HA001'))
 stn <- stn %>%
   mutate(Date = ymd(Date), Year = format_ISO8601(Date, precision = "y")) %>%
   filter(Year >= 1971)
-
-```
-
-```{r, echo = FALSE, eval = FALSE} 
-#test stations- just one year
-stn_07BK007_1972 <- stn_07BK007 %>%
-  #get a year column
-mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y")) %>%
-  #just 1972 for now 
-  filter(Year == "1972")
 
 ```
 
@@ -73,7 +63,7 @@ day_of_year_calc <- function(data){
 
 ```
 
-2) Calculate water year and day of the water year 
+#2) Calculate water year and day of the water year 
 ```{r} 
 
 #add water year
@@ -81,8 +71,37 @@ stn_wy <- addWaterYear(stn) %>%
     mutate(waterYear = as.character(waterYear)) %>%
   select(-Year)
 
-#add day of year
-stn_wy_doy <- day_of_year_calc(stn_wy)
+#apply the doy calc by station number. If there is only one station, this function can be applied directly to the df.
+stn_wy_split <- split(stn_wy, stn_wy$STATION_NUMBER )
+stn_wy_split_doy <- lapply(stn_wy_split, day_of_year_calc)
+stn_wy_doy <- bind_rows(stn_wy_split_doy, .id = "Station_Number") 
+
+stn_wy_doy <- stn_wy_doy %>%
+  select(-c(STATION_NUMBER))
+
+rm(stn_wy_split, stn_wy_split_doy, stn_wy)
+
+```
+
+```{r, echo = FALSE, eval = FALSE} 
+#test stations- just one year
+
+stn_07BK007 <- tidyhydat::hy_daily_flows(station_number = '07BK007')
+
+stn_07BK007_1972 <- stn_07BK007 %>%
+  #get a year column
+mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y")) %>%
+  #just 1972 for now 
+  filter(Year == "1972")
+
+rm(stn_07BK007, stn_07BK007_1972)
+
+stn_07BE001 <- stn_wy_doy %>% #"07BE001" "07HA001"
+filter(Station_Number == "07BE001")
+
+stn_07HA001 <- stn_wy_doy %>% #"07BE001" "07HA001"
+filter(Station_Number == "07HA001")
+
 
 ```
 
@@ -92,7 +111,8 @@ stn_wy_doy <- day_of_year_calc(stn_wy)
 
 Group_1_ice_cover <- function(data) {
 #function returns a df for the length of ice coverage, per calendar year
-
+#works with one station, multiple years
+#for multiple stations, split-apply-combine station
   lst <- list()
 
     for (i in unique({{data}}$waterYear)) {
@@ -110,8 +130,7 @@ Group_1_ice_cover <- function(data) {
 }
 
 #test
-#Ice_coverage_stn07bk007 <- Group_1_ice_cover(stn_07BK007_wy_doy)
-
+#Ice_coverage_07BE001 <- Group_1_ice_cover(stn_07BE001)
 #edit function so that it takes water year and calendar year arguments
 
 ```
@@ -184,24 +203,99 @@ Group_2_freeze_thaw <- function(data) {
 }
 
 #test
-#Fr_thaw_stn07bk007 <- Group_2_freeze_thaw(stn_07BK007_wy_doy)
+#Fr_thaw_stn_07BE001 <- Group_2_freeze_thaw(stn_07BE001)
 #edit function so that it takes water year and calendar year arguments
 #edit function for error checking
 
 ```
 
-3) Calculate and tidy Ice Variables( Group 1 and Group 2) for each station
+
+```{r, echo = FALSE}
+#Group 3 Function: Onset of Freshet
+
+Group_3_freshet <- function(data) {
+  index <- 0
+  f_index <- 16
+  date_lst <- list()
+  flow_lst <- list()
+  stn_nu <- list()
+  doy_lst <- list()
+
+  for (i in unique({{data}}$waterYear)) { #first loop
+    #subset data by year, resetting at each year
+    index = 0  
+    f_index = 16 
+    df_subset <- {{data}}[{{data}}$waterYear == i,]
+   df_subset <- df_subset %>%
+     #data tidying:delete dates before Feb 12, so rolling mean calc starts on March 1
+    mutate(Date = as.Date(Date)) %>%
+    #filter(month(Date) %in% c(3,4,5,6))
+    mutate(new_col = format(Date,"%m-%d")) %>%
+    filter(month(Date) >= 2 & month(Date) < 7) %>% 
+    filter(!(new_col %in% c("02-01", "02-02", "02-03", "02-04", "02-05", "02-06", "02-07", "02-08", "02-09", "02-10", "02-11")))
+   
+    #calc rolling 16 day mean
+    rollmn <- rollmean(df_subset$Value, k = 16, width = 16)
+    #rollmn <- as.data.frame(rollmn)
+    
+      for (j in rollmn) { #second loop
+        #increment index
+        index = index + 1
+        f_index = f_index + 1
+      
+        #find rolling mean value at the index and multiply by 1.5
+        rollmnvalue <- rollmn[index] #roll mean = 0.81
+        rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
+        
+        #get the flow value at that index
+        flowvalue <- df_subset$Value[f_index] #flow = 0.654
+        
+          if (flowvalue > rollmnvalue1.5 & f_index < 123 ) { #third loop
+          #append date, flow value to a list using the index numbers
+          dt <- df_subset$Date[f_index]
+          fl <- df_subset$Value[f_index]
+          st <- df_subset$Station_Number[f_index]
+          doy <- df_subset$day_of_year[f_index]
+         # print(dt) 
+        #  print(fl)
+        #  print("end") 
+          date_lst[[i]] <- dt 
+          flow_lst[[i]] <- fl 
+          stn_nu[[i]] <- st
+          doy_lst[[i]] <- doy
+          Freshet_Date <- as.Date(unlist(date_lst))
+          Freshet_Flow <- unlist(flow_lst)
+          Station_Number <- unlist(stn_nu)
+          Day_of_year <- unlist(doy_lst)
+          df <- cbind.data.frame(Station_Number, Freshet_Date, Day_of_year, Freshet_Flow)
+          break
+          }
+        
+      }
+        
+  }
+        Freshet_dates_flow <- rownames_to_column(df, "waterYear")
+        return(Freshet_dates_flow)
+}
+
+```
+
+#3) Calculate and tidy Ice Variables( Group 1 and Group 2) for each station
 ```{r}
+
 #make a list of dfs- split by station number
 stn_wy_doy_split <- split(stn_wy_doy, stn_wy_doy$STATION_NUMBER )
 
 #apply ice variable function to all dfs in the list
 stn_wy_doy_g1 <- lapply(stn_wy_doy_split, Group_1_ice_cover)
 stn_wy_doy_g2 <- lapply(stn_wy_doy_split, Group_2_freeze_thaw)
+#stn_wy_doy_g3 <- lapply(stn_wy_doy_split, Group_3_freshet)
 
 #Combine all outputs into one df
 output1 <- bind_rows(stn_wy_doy_g1, .id = "Station_Number") 
 output2 <- bind_rows(stn_wy_doy_g2, .id = "Station_Number")
+#output3 <- bind_rows(stn_wy_doy_g3, .id = "Station_Number")
+
 
 df_final <- merge(output1, output2)
 
@@ -307,10 +401,10 @@ scale_colour_manual(values = pal)  +
 ```
 
 
-#Rolling 16 day mean
-```{r}
+```{r, echo=FALSE, eval=FALSE}
 
-#for one year
+#Rolling 16 day mean calcs - just for one year 
+
 rollmn <- rollmean(stn_07BK007_1972$Value, k = 16, width = 16)
 rollmnvalue <- rollmn[1] #0.81
 rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
@@ -321,66 +415,208 @@ x <- stn_07BK007_1972$Value[16] #0.654
 
 ```
 
-```{r}
-
+```{r, echo= FALSE, eval=FALSE}
 #for one year, from March 1 onward
 #stn_07BK007_1972_summer <- stn_07BK007_1972 %>%
- # filter(Date >= "1972-03-01")
+ #filter(Date >= "1972-03-01")
+
+stn_07BK007_wy_doy_no1971 <- stn_07BK007_wy_doy %>%
+  filter(waterYear > 1971 & waterYear < 2022)
+
+#View(stn_07BK007_wy_doy_no1971)
+```
+
+#freshet calc no function
+```{r, echo= FALSE, eval=FALSE}
+
+#calculate rolling mean, not in a function
 
 index <- 0
 f_index <- 16
-date <- list()
-flow <- list()
-#df <- as.data.frame(c())
+date_lst <- list()
+flow_lst <- list()
+stn_nu <- list()
+doy_lst <- list()
 
-for (i in unique(stn_07BK007_wy_doy$waterYear)) { #first loop
+for (i in unique(stn_07HA001$waterYear)) { #first loop
   #subset data by year, resetting at each year
-  index <- 0 
-  f_index <- 16 
-  df_subset <- stn_07BK007_wy_doy[stn_07BK007_wy_doy$waterYear == i,]
-
+  index = 0  
+  f_index = 16 
+  df_subset <- stn_07HA001[stn_07HA001$waterYear == i,]
+  df_subset <- df_subset %>%
+    mutate(Date = as.Date(Date)) %>%
+    #filter(month(Date) %in% c(3,4,5,6))
+    mutate(new_col = format(Date,"%m-%d")) %>%
+    filter(month(Date) >= 2 & month(Date) < 7) %>% 
+    filter(!(new_col %in% c("02-01", "02-02", "02-03", "02-04", "02-05", "02-06", "02-07", "02-08", "02-09", "02-10", "02-11")))
+ #if (nrow(df_subset) < 123) {next}
+  
   #calc rolling 16 day mean
   rollmn <- rollmean(df_subset$Value, k = 16, width = 16)
-  
-    for (i in rollmn) { #second loop
+
+    for (j in rollmn) { #second loop
       #increment index
-      index <- index + 1
-      f_index <- f_index + 1
+      index = index + 1
+      f_index = f_index + 1
       
       #find rolling mean value at the index and multiply by 1.5
       rollmnvalue <- rollmn[index] #roll mean = 0.81
       rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
-    
+      
       #get the flow value at that index
       flowvalue <- df_subset$Value[f_index] #flow = 0.654
-  
-        if (flowvalue > rollmnvalue1.5) { #third loop
-        #append date, flow value to a list here
+      
+        if (flowvalue > rollmnvalue1.5 & f_index < 123) { #third loop
+        #append date, flow value to a list using the index numbers
         dt <- df_subset$Date[f_index]
         fl <- df_subset$Value[f_index]
-        date <- dt
-        flow <- fl
-        print(dt)
+        st <- df_subset$Station_Number[f_index]
+        doy <- df_subset$day_of_year[f_index]
+        print(dt) 
         print(fl)
-        print("end")
-        Freshet_Date <- as.Date(unlist(date))
-        Freshet_Flow <- unlist(flow)
-        df <- cbind.data.frame(Freshet_Date, Freshet_Flow)
-        return(df)
+        print("end") 
+        date_lst[[i]] <- dt 
+        flow_lst[[i]] <- fl 
+        stn_nu[[i]] <- st
+        doy_lst[[i]] <- doy
+        Freshet_Date <- as.Date(unlist(date_lst))
+        Freshet_Flow <- unlist(flow_lst)
+        Station_Number <- unlist(stn_nu)
+        Day_of_year <- unlist(doy_lst)
+        df <- cbind.data.frame(Station_Number, Freshet_Date, Day_of_year, Freshet_Flow)
         break
         }
+     # else() #append column with NA for freshet date, doy, and value?
       
     }
-  
+      Freshet_dates_flow1 <- rownames_to_column(df, "waterYear")
+
 }
 
+#debug:
+#need to make sure loop 3 is skipped and "NA" if index is greater than 122, ie if freshet doesn't happen
+#error checking within function
+#water year vs calendar year
+#how to handle missing years and not stop loop (ie use "next")
+#make sure that if flow never goes above 1.5 times the rm the loop doesn't use the last value but writes "NA"
+```
 
-# the problem now is that it only saves the first value, and exits the loop
 
+#freshet function - working
+```{r}
+
+#Group 3 Function: Onset of Freshet
+
+Group_3_freshet <- function(data) {
+  index <- 0
+  f_index <- 16
+  date_lst <- list()
+  flow_lst <- list()
+  stn_nu <- list()
+  doy_lst <- list()
+
+  for (i in unique({{data}}$waterYear)) { #first loop
+    #subset data by year, resetting at each year
+    index = 0  
+    f_index = 16 
+    df_subset <- {{data}}[{{data}}$waterYear == i,]
+   df_subset <- df_subset %>%
+     
+    mutate(Date = as.Date(Date)) %>%
+    #filter(month(Date) %in% c(3,4,5,6))
+    mutate(new_col = format(Date,"%m-%d")) %>%
+    filter(month(Date) >= 2 & month(Date) < 7) %>% 
+    filter(!(new_col %in% c("02-01", "02-02", "02-03", "02-04", "02-05", "02-06", "02-07", "02-08", "02-09", "02-10", "02-11")))
+   
+    #calc rolling 16 day mean
+    rollmn <- rollmean(df_subset$Value, k = 16, width = 16)
+    #rollmn <- as.data.frame(rollmn)
+    
+      for (j in rollmn) { #second loop
+        #increment index
+        index = index + 1
+        f_index = f_index + 1
+      
+        #find rolling mean value at the index and multiply by 1.5
+        rollmnvalue <- rollmn[index] #roll mean = 0.81
+        rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
+        
+        #get the flow value at that index
+        flowvalue <- df_subset$Value[f_index] #flow = 0.654
+        
+          if (flowvalue > rollmnvalue1.5 & f_index < 123 ) { #third loop
+          #append date, flow value to a list using the index numbers
+          dt <- df_subset$Date[f_index]
+          fl <- df_subset$Value[f_index]
+          st <- df_subset$Station_Number[f_index]
+          doy <- df_subset$day_of_year[f_index]
+         # print(dt) 
+        #  print(fl)
+        #  print("end") 
+          date_lst[[i]] <- dt 
+          flow_lst[[i]] <- fl 
+          stn_nu[[i]] <- st
+          doy_lst[[i]] <- doy
+          Freshet_Date <- as.Date(unlist(date_lst))
+          Freshet_Flow <- unlist(flow_lst)
+          Station_Number <- unlist(stn_nu)
+          Day_of_year <- unlist(doy_lst)
+          df <- cbind.data.frame(Station_Number, Freshet_Date, Day_of_year, Freshet_Flow)
+          break
+          }
+        
+      }
+        
+  }
+        Freshet_dates_flow <- rownames_to_column(df, "waterYear")
+        return(Freshet_dates_flow)
+}
+
+#test
+Freshet_stn_07BE001<- Group_3_freshet(stn_07BE001)
+Freshet_stn_07HA001 <- Group_3_freshet(stn_07HA001)
+
+```
+
+#freshet calc multiple stations - working
+```{r}
+
+stn_wy_doy_no1971 <- stn_wy_doy %>%
+  filter(waterYear > 1971 & waterYear < 2021)
+
+stn_wy_doy_split <- split(stn_wy_doy, stn_wy_doy$Station_Number )
+
+#apply ice variable function to all dfs in the list
+stn_wy_doy_g1 <- lapply(stn_wy_doy_split, Group_1_ice_cover)
+stn_wy_doy_g2 <- lapply(stn_wy_doy_split, Group_2_freeze_thaw)
+stn_wy_doy_g3 <- lapply(stn_wy_doy_split, Group_3_freshet)
+
+#Combine all outputs into one df
+output1 <- bind_rows(stn_wy_doy_g1, .id = "Station_Number") 
+output2 <- bind_rows(stn_wy_doy_g2, .id = "Station_Number")
+output3 <- bind_rows(stn_wy_doy_g3, .id = "Station_Number")
+
+df_final <- merge(output1, output2)
+
+#Get rid of first and last years, they are always wrong when calculated using water year
+df_final<- df_final %>%
+  filter(waterYear >= 1972 & waterYear < 2021)
+
+head(df_final, 5)
 
 ```
 
 
 
 ```{r}
+
+
 ```
+
+
+```{r}
+
+
+```
+
+
