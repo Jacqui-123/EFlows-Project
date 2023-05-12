@@ -1,0 +1,437 @@
+
+Pre and Post Bennett Dam Construction Continuous Stations - From Tidyhydat & the Water Survey of CA
+Variables Calculated: IHA, ICE, and Percent Change
+
+Run "Eflows_FUNCTIONS.R" before running this file.
+
+
+```{r}
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+library(dataRetrieval)
+
+```
+
+
+
+```{r}
+
+#get stns for this analysis
+stn_all <- hy_daily_flows(station_number = c('07KC001', '07HA001', '07NB001', '07DA001')) 
+
+stn_all <- stn_all %>%
+group_by(STATION_NUMBER) %>%
+#make a complete set of days for each year 
+complete(Date = seq.Date(as.Date("1920/10/1"), as.Date("2022/09/30"), by="day")) 
+
+
+#add water year
+stn_all <- addWaterYear(stn_all) %>%
+mutate(waterYear = as.character(waterYear))
+
+#add day of the year
+stn_all_split <- split(stn_all, stn_all$STATION_NUMBER )
+stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
+stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
+
+rm(stn_all_split, stn_all_split_doy)
+
+```
+
+# Pre dam stns 1947-1967
+```{r}
+
+stn_pre <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(Date >= "1956-10-01" & Date < "1967-10-01") 
+
+#print out rows with > 14 Nas in a row
+lst_stns_pre <- split(stn_pre, stn_pre$STATION_NUMBER )
+lst_stns_pre_rle <- lapply(lst_stns_pre, calc_rle)
+
+for (i in lst_stns_pre_rle) {
+  for (j in i)
+    stn <- unique(i$STATION_NUMBER)
+    wy <- unique(i$waterYear)
+    print("delete the following station # and water year:")
+    print(stn)
+    print(wy)
+}
+
+
+#delete the rows with >14 NAs, printed from above, and fill any values that are missing with preceding values 
+stn_pre <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(Date >= "1956-10-01" & Date < "1967-10-01") %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1958)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1959)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1959)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1964)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1956)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1958)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1959)) %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+```
+
+# Pre dam stns IHA
+```{r}
+
+#make a list of dfs- split by station number
+lst_stns_pre <- split(stn_pre, stn_pre$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_pre_IHA <- lapply(lst_stns_pre, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_pre <- bind_rows(lst_stns_pre_IHA, .id = "STATION_NUMBER")
+View(IHA_pre)
+
+
+```
+
+
+# Post dam stns 1972-2023
+```{r}
+stn_post <- stn_all %>%
+mutate(Date = as.Date(Date)) %>%
+group_by(STATION_NUMBER) %>%
+filter(Date >= "1972-10-01" & Date < "2022-10-01") %>%
+  select(-c(Symbol))
+
+
+#print out rows with >14 Nas in a row, and then manually delete that year
+lst_stns_post<- split(stn_post, stn_post$STATION_NUMBER )
+lst_stns_post_rle <- lapply(lst_stns_post, calc_rle)
+
+for (i in lst_stns_post_rle) {
+  for (j in i)
+    stn <- unique(i$STATION_NUMBER)
+    wy <- unique(i$waterYear)
+    print("delete the following station # and water year:")
+    print(stn)
+    print(wy)
+}
+
+
+#delete the printed values from above and fill any values that are missing with preceding values 
+
+stn_post <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(Date >= "1972-10-01" & Date < "2022-10-01") %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 2022)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2022)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2008)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2009)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2022)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2022)) %>%
+  select(-c(Symbol)) %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+```
+
+# Post dam stns IHA
+
+```{r}
+#make a list of dfs- split by station number
+lst_stns_post <- split(stn_post, stn_post$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_post_IHA <- lapply(lst_stns_post, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_post <- bind_rows(lst_stns_post_IHA, .id = "STATION_NUMBER")
+View(IHA_post)
+
+
+```
+
+#Delete if this works...
+# Ice Variables FUNCTIONS - move up to top 
+```{r}
+
+#GROUP 1 FUNCTION - ICE COVER 
+
+Group_1_ice_cover <- function(data) {
+#function returns a df for the length of ice coverage, per water year
+#works with one station, multiple years
+#for multiple stations, split-apply-combine station
+  lst <- list()
+
+    for (i in unique({{data}}$waterYear)) {
+  
+      length_B_date  <- max(rle({{data}}$Symbol[{{data}}$waterYear == i] == "B")[[1]]) 
+  #append each value to a list
+      length_B_date <- length_B_date - 1
+      lst[[i]] <- length_B_date
+    }
+  
+  Ice_coverage_wy <- data.frame(waterYear = names(lst), Ice_coverage_wy = unlist(lst))
+  rownames(Ice_coverage_wy) <-NULL
+  return(Ice_coverage_wy)
+  
+}
+
+
+#GROUP 2 FUNCTION - FREEZE AND THAW DATES
+
+
+Group_2_freeze_thaw <- function(data) {
+  #This function calculates the freeze and thaw dates and their flow values, using the longest consecutive run of "B" Symbols in the df
+
+  start_date_lst <- list()
+  end_date_lst <- list()
+  start_flow_lst <- list()
+  end_flow_lst <- list()
+  start_doy_lst <- list()
+  end_doy_lst <- list()
+
+  for (i in unique({{data}}$waterYear)){
+ 
+    df_subset <- {{data}}[{{data}}$waterYear == i,]
+  
+    #calc rle for B symbol
+    rle_m = rle(df_subset$Symbol == "B")
+  
+    #find index for max run of B symbols
+    max_run_index <- which.max(rle_m$lengths)
+  
+    #find end start and index of max run of B symbols
+    end <- cumsum(rle_m$lengths)[max_run_index]
+    start <- end - rle_m$lengths[max_run_index] +1
+
+    #find date at end, start index of the max run 
+    date_end = df_subset$Date[end]
+    date_start = df_subset$Date[start]
+  
+    #find flow at end, start index
+    flow_end = df_subset$Value[end]
+    flow_start = df_subset$Value[start]
+    
+    #find doy at end, start index
+    doy_end = df_subset$day_of_year[end]
+    doy_start = df_subset$day_of_year[start]
+    
+    #append dates to the list
+    start_date_lst[[i]] <- date_start
+    end_date_lst[[i]] <- date_end
+  
+    #append flows to the list
+    start_flow_lst[[i]] <- flow_start
+    end_flow_lst[[i]] <- flow_end
+    
+    #append doy to the list
+    start_doy_lst[[i]] <- doy_start
+    end_doy_lst[[i]] <- doy_end
+    
+  }
+
+    Freeze_Date <- as.Date(unlist(start_date_lst))
+    Thaw_Date <- as.Date(unlist(end_date_lst))
+    Flow_Freeze <- unlist(start_flow_lst)
+    Flow_Thaw <- unlist(end_flow_lst)
+    Freeze_DOY <-unlist(start_doy_lst)
+    Thaw_DOY <- unlist(end_doy_lst)
+
+    df <- cbind.data.frame(Freeze_Date,Freeze_DOY,Flow_Freeze,Thaw_Date,Thaw_DOY, Flow_Thaw)
+
+    Ice_coverage_dates_flow <- rownames_to_column(df, "waterYear")
+    return(Ice_coverage_dates_flow)
+}
+
+
+#GROUP 3 FUNCTION - ONSET OF FRESHET
+
+
+Group_3_freshet <- function(data) {
+  index <- 0
+  f_index <- 16
+  date_lst <- list()
+  flow_lst <- list()
+  stn_nu <- list()
+  doy_lst <- list()
+
+  for (i in unique({{data}}$waterYear)) { #first loop
+    #subset data by year, resetting at each year
+    index = 0  
+    f_index = 16 
+    df_subset <- {{data}}[{{data}}$waterYear == i,]
+   df_subset <- df_subset %>%
+     #data tidying:delete dates before Feb 12, so rolling mean calc starts on March 1
+    mutate(Date = as.Date(Date)) %>%
+    #filter(month(Date) %in% c(3,4,5,6))
+    mutate(new_col = format(Date,"%m-%d")) %>%
+    filter(month(Date) >= 2 & month(Date) < 7) %>% 
+    filter(!(new_col %in% c("02-01", "02-02", "02-03", "02-04", "02-05", "02-06", "02-07", "02-08", "02-09", "02-10", "02-11")))
+   
+    #calc rolling 16 day mean
+    rollmn <- rollmean(df_subset$Value, k = 16, width = 16)
+    #rollmn <- as.data.frame(rollmn)
+    
+      for (j in rollmn) { #second loop
+        #increment index
+        index = index + 1
+        f_index = f_index + 1
+      
+        #find rolling mean value at the index and multiply by 1.5
+        rollmnvalue <- rollmn[index] #roll mean = 0.81
+        rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
+        
+        #get the flow value at that index
+        flowvalue <- df_subset$Value[f_index] #flow = 0.654
+        
+          if (flowvalue > rollmnvalue1.5 & f_index < 123 ) { #third loop
+          #append date, flow value to a list using the index numbers
+          dt <- df_subset$Date[f_index]
+          fl <- df_subset$Value[f_index]
+          st <- df_subset$STATION_NUMBER[f_index]
+          doy <- df_subset$day_of_year[f_index]
+         # print(dt) 
+        #  print(fl)
+        #  print("end") 
+          date_lst[[i]] <- dt 
+          flow_lst[[i]] <- fl 
+          stn_nu[[i]] <- st
+          doy_lst[[i]] <- doy
+          Freshet_Date <- as.Date(unlist(date_lst))
+          Freshet_Flow <- unlist(flow_lst)
+          Station_Number <- unlist(stn_nu)
+          Day_of_year <- unlist(doy_lst)
+          df <- cbind.data.frame(Station_Number, Freshet_Date, Day_of_year, Freshet_Flow)
+          break
+          }
+        
+      }
+        
+  }
+        Freshet_dates_flow <- rownames_to_column(df, "waterYear")
+        return(Freshet_dates_flow)
+}
+
+```
+
+
+```{r}
+
+
+#Date must be in yyyy-mm-dd format for ice variables- so re-run tidying code for pre and post dfs without the line that mutates to dd-mm-yyyy format. 
+#don't forget to keep the symbol column
+
+stn_pre <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(Date >= "1956-10-01" & Date < "1967-10-01") %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1958)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1959)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1959)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1964)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1956)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1958)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1959)) %>%
+  #mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+
+stn_post <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(Date >= "1972-10-01" & Date < "2022-10-01") %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 2022)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2022)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2008)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2009)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2022)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2022)) %>%
+  #mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+```
+
+#ICE Variables - pre
+```{r}
+
+#make a list of dfs- split by station number
+stn_pre_split <- split(stn_pre, stn_pre$STATION_NUMBER )
+
+#apply ice variable function to all dfs in the list
+stn_pre_g1 <- lapply(stn_pre_split, Group_1_ice_cover)
+stn_pre_g2 <- lapply(stn_pre_split, Group_2_freeze_thaw)
+stn_pre_g3 <- lapply(stn_pre_split, Group_3_freshet)
+
+#Combine all outputs into one df
+output1 <- bind_rows(stn_pre_g1, .id = "STATION_NUMBER") 
+output2 <- bind_rows(stn_pre_g2, .id = "STATION_NUMBER")
+output3 <- bind_rows(stn_pre_g3, .id = "STATION_NUMBER")
+
+#df_final <- cbind.data.frame(output1, output2, output3)
+
+
+```
+
+#ICE Variables - post
+
+```{r}
+#make a list of dfs- split by station number
+stn_post_split <- split(stn_post, stn_post$STATION_NUMBER )
+
+#apply ice variable function to all dfs in the list
+stn_post_g1 <- lapply(stn_post_split, Group_1_ice_cover)
+stn_post_g2 <- lapply(stn_post_split, Group_2_freeze_thaw)
+stn_post_g3 <- lapply(stn_post_split, Group_3_freshet)
+
+#Combine all outputs into one df
+output1 <- bind_rows(stn_post_g1, .id = "STATION_NUMBER") 
+output2 <- bind_rows(stn_post_g2, .id = "STATION_NUMBER")
+output3 <- bind_rows(stn_post_g3, .id = "STATION_NUMBER")
+
+#df_final <- cbind.data.frame(output1, output2, output3)
+
+
+```
+
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
