@@ -1,0 +1,169 @@
+
+Pre and Post Bennett Dam Construction Seasonal Stations - From Tidyhydat & the Water Survey of CA
+Variables Calculated: IHA, and Percent Change
+Run "Eflows_FUNCTIONS.R" before running this file.
+
+```{r}
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+library(dataRetrieval)
+
+```
+
+
+```{r}
+
+#get stns for this analysis
+stn_all <- hy_daily_flows(station_number = c('07EF001', '07FD002', '07NB001')) 
+
+stn_all <- stn_all %>%
+group_by(STATION_NUMBER) %>%
+#make a complete set of days for each year 
+complete(Date = seq.Date(as.Date("1920/10/1"), as.Date("2022/09/30"), by="day")) 
+
+
+#add water year
+stn_all <- addWaterYear(stn_all) %>%
+mutate(waterYear = as.character(waterYear))
+
+#add day of the year
+stn_all_split <- split(stn_all, stn_all$STATION_NUMBER )
+stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
+stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
+
+rm(stn_all_split, stn_all_split_doy)
+
+```
+
+# Pre dam stns 1947-1967
+```{r}
+
+stn_pre <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(Date >= "1956-10-01" & Date < "1967-10-01") %>%
+  filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) 
+
+#print out rows with >14 Nas in a row, and then manually delete that year
+lst_stns_pre <- split(stn_pre, stn_pre$STATION_NUMBER )
+lst_stns_pre_rle <- lapply(lst_stns_pre, calc_rle)
+
+for (i in lst_stns_pre_rle) {
+  for (j in i)
+    stn <- unique(i$STATION_NUMBER)
+    wy <- unique(i$waterYear)
+    print("delete the following station # and water year:")
+    print(stn)
+    print(wy)
+}
+
+#delete the printed values from above and fill any values that are missing with preceding values 
+stn_pre <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(Date >= "1956-10-01" & Date < "1967-10-01") %>%
+  filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) %>%
+  filter(!c(STATION_NUMBER == "07EF001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07FD002" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1957)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1958)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1959)) %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+
+```
+
+# Pre dam stns IHA
+```{r}
+
+#make a list of dfs- split by station number
+lst_stns_pre <- split(stn_pre, stn_pre$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_pre_IHA <- lapply(lst_stns_pre, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_pre <- bind_rows(lst_stns_pre_IHA, .id = "STATION_NUMBER")
+View(IHA_pre)
+
+```
+
+
+# Post dam stns 1972-2023
+```{r}
+
+stn_post <- stn_all %>%
+mutate(Date = as.Date(Date)) %>%
+group_by(STATION_NUMBER) %>%
+filter(Date >= "1972-10-01" & Date < "2022-10-01") %>%
+filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) 
+
+
+#print out rows with >14 Nas in a row, and then manually delete that year
+lst_stns_post<- split(stn_post, stn_post$STATION_NUMBER )
+lst_stns_post_rle <- lapply(lst_stns_post, calc_rle)
+
+for (i in lst_stns_post_rle) {
+  for (j in i)
+    stn <- unique(i$STATION_NUMBER)
+    wy <- unique(i$waterYear)
+    print("delete the following station # and water year:")
+    print(stn)
+    print(wy)
+}
+
+
+#delete the printed values from above and fill any values that are missing with preceding values 
+stn_post <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(Date >= "1972-10-01" & Date < "2022-10-01") %>%
+  filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) %>%
+  filter(!c(STATION_NUMBER == "07EF001" & waterYear == 2019)) %>%
+  filter(!c(STATION_NUMBER == "07EF001" & waterYear == 2020)) %>%
+  filter(!c(STATION_NUMBER == "07EF001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07EF001" & waterYear == 2022)) %>%
+  filter(!c(STATION_NUMBER == "07FD002" & waterYear == 2011)) %>%
+  filter(!c(STATION_NUMBER == "07FD002" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07FD002" & waterYear == 2022)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2022)) %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+```
+
+# Post dam stns IHA
+
+```{r}
+#make a list of dfs- split by station number
+lst_stns_post <- split(stn_post, stn_post$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_post_IHA <- lapply(lst_stns_post, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+IHA_post <- bind_rows(lst_stns_post_IHA, .id = "STATION_NUMBER")
+
+View(IHA_post)
+
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+

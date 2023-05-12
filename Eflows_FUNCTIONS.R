@@ -258,8 +258,8 @@ library(dataRetrieval)
       }
       
     }
-    Freshet_dates_flow <- rownames_to_column(df, "waterYear")
-    return(Freshet_dates_flow)
+      Freshet_dates_flow <- rownames_to_column(df, "waterYear")
+      return(Freshet_dates_flow)
   }  
   
   
