@@ -15,7 +15,7 @@ library(dataRetrieval)
 
   calc_missing_yrs <- function(df, Date) {
   #Find out if there are missing years in the data set. Will return "false" if there are no missing years, or a df of missing years. 
-  #Date should be in yyyy-mm-dd
+  #Date should be in yyyy-mm-dd, col title is "Date"
   #cal year not wy 
   years <- format(df$Date, "%Y")
   unique_years <- unique(years)
@@ -56,7 +56,7 @@ library(dataRetrieval)
     
     return(df3)
   }
-  
+
 
 #######PART 2 - IHA VARIABLES#####
   
@@ -104,7 +104,7 @@ library(dataRetrieval)
 #Used to calculate the freeze-up dates, ice break-up dates, and continuous ice coverage
 #df must have col names: "day_of_year", "Value", "Symbol", "Date", "waterYear"
 #Date must be in yyyy-mm-dd format for all ice variables functions
-  
+
 #GROUP 1 FUNCTION - ICE COVER 
   
   Group_1_ice_cover <- function(data) {
@@ -123,6 +123,7 @@ library(dataRetrieval)
     
     Ice_coverage_wy <- data.frame(waterYear = names(lst), Ice_coverage_wy = unlist(lst))
     rownames(Ice_coverage_wy) <-NULL
+   
     return(Ice_coverage_wy)
     
   }
@@ -191,6 +192,7 @@ library(dataRetrieval)
     
     Ice_coverage_dates_flow <- rownames_to_column(df, "waterYear")
     return(Ice_coverage_dates_flow)
+    
   }
   
   
@@ -264,7 +266,38 @@ library(dataRetrieval)
   
   
   
-#######PART 4 - MISC FUNCTIONS NO LONGER USING BUT STILL USEFUL#####
+  
+  
+#######PART 4 - PERCENT CHANGE#####
+  
+  
+  
+  # Calculate percent change
+
+  calc_percent_change <- function(data_pre, data_post, stn, year_col){
+    
+    #calculates percent change from IHA pre and post stns, once tidying is complete. 
+    #stn = i if looping through multiple stns
+    
+    years_post <- {{data_post}}[[year_col]] 
+    
+    IHA_medians_pre <- {{data_pre}} %>%
+      filter(STATION_NUMBER == {{stn}}) %>% 
+      select(-c(STATION_NUMBER))
+    
+    IHA_pst <- {{data_post}} %>%
+      filter(STATION_NUMBER == {{stn}})%>% 
+      select(-c(STATION_NUMBER, {{year_col}}))
+    
+    IHA_pre_expand_rows <- IHA_medians_pre[rep(1, nrow(IHA_pst)),]
+    
+    output <- ((IHA_pst - IHA_pre_expand_rows) /IHA_pre_expand_rows ) * 100
+    
+    percent_change <- merge(years_post, output, by.x = 0, by.y = 0) %>%
+      rename("Year" = "x")
+  }
+  
+#######PART 5 - MISC FUNCTIONS NO LONGER USING BUT STILL USEFUL#####
   
  # Find missing years
   
@@ -282,3 +315,5 @@ library(dataRetrieval)
     print(missing_years)
   }
 
+  
+  
