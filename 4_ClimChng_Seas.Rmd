@@ -163,6 +163,48 @@ View(IHA_post)
 
 ```
 
+#Percent change, IHA Variables 
+```{r}
+#data prep, IHA-pre
+#calc the medians value for each stn number for the IHA-pre df
+IHA_medians_pre <- IHA_pre %>%
+  group_by(STATION_NUMBER) %>%
+  summarise(across(October:Reversals, median)) #Change to Jan if doing cal year
+
+#data prep, IHA-post
+#find the min and max year for the IHA_post df so there is an even number of years for each station
+
+minyr <-min(IHA_post$Year)
+maxyr <- max(IHA_post$Year)
+
+IHA_pst <- IHA_post %>%
+  mutate(Year = as.integer(Year)) %>%
+  complete(STATION_NUMBER, Year = minyr:maxyr) #fills NA for values for missing years 
+
+```
+
+Calculate percent change
+```{r}
+
+df_lst <- list()
+
+for (i in unique(IHA_medians_pre$STATION_NUMBER)) {
+
+calc <- calc_percent_change(IHA_medians_pre, IHA_pst, stn = i, year_col = "Year") #calc perc. change for all stns
+calc$i <- i #add i (stn # to the calc df)
+df_lst[[i]] <- calc #add calc df to the list
+}
+
+final_pc_IHA <- bind_rows(df_lst) %>%
+ rename("Station_Number" = "i") 
+
+View(final_pc_IHA)
+
+#write.csv(final_pc_IHA, "PC_IHA.csv")
+
+```
+
+
 
 ```{r}
 

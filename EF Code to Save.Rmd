@@ -5,99 +5,10 @@ output: html_notebook
 
 ##Code snippets for use in the WBNP EF project##
 
-#How to get a list of data frames of station metadata:
 ```{r}
-
-#metadata subset - list of df
-stations_subset_metadata <- list()
-for (st in stations_subset) {data <- tidyhydat::hy_stn_data_coll(station_number = (st))
-stations_subset_metadata[[st]] <- data.frame(data)
-}
-#this worked, can get a metadata list of lists.
-
-```
-
-#Same thing but to get daily flows in a list of df.
-```{r}
-
-dfList <- list()
-for (st in stations_all) {data <- tidyhydat::hy_daily(station_number = (st))
-dfList[[st]] <- data.frame(data)
-}
-
-```
-
-##Take station metadata and make the station numbers into a list so they can be used int he tidyhat package for station number
-
-```{r}
-
-#Post-dam stations- get rid of blanks and make into a list
-
-#select only the list of pre-dam station numbers
-postdam_stations <- stations_to_analyze %>%
-select(post.dam..1969.1989)
-
-#delete rows that are na or blanks
-postdam_stations <- postdam_stations[!(is.na(postdam_stations$post.dam..1969.1989) | postdam_stations$post.dam..1969.1989==""), ]
-
-#make as a list of characters
-as.list(as.character(postdam_stations))
-
-#use this variable in the tidyhat package for station_number =
-```
-
-Flow metadata, keeping only the stations with 20 years of total data, regardless of if they are c/s/m. 
-Here I subtract the years of operation and add up for each station to get total number of years.
-
-```{r}
-
-#Ended up not using this 
-
-Stations_metadata_flow_20yrsdata <- Stations_metadata_onelist %>%
-  #getting rid of operation type (we don't care if its s/c/m for now)
-select(STATION_NUMBER, DATA_TYPE, Year_from, Year_to,  ) %>%
-  #only flow data
-filter(DATA_TYPE == 'Flow') %>%
-  #keep station numbers together
-group_by(STATION_NUMBER) %>%
-  #make a new column with the max and min dates
-mutate(min_date = min(Year_from),
-            max_date = max(Year_to)) %>%
-  #select only the max and min dates rather than the years to get rid of duplicate max and min dates
-select(STATION_NUMBER, DATA_TYPE, max_date, min_date) %>%
-  #get rid of max date and min date duplicates
-  distinct() %>%
-  #take the diff between max and min date
-mutate(diff = max_date - min_date) %>%
-  #keep only those with greater than or equal to 20 years of data, total (might not be consecutive)
-filter(diff >= 20)  
-  
-View(Stations_metadata_flow_20yrsdata)
-
-#197 flow stations with varying amounts of C,S,M which aren't shown
-
-```
-
-
-```{r}
-Then tidy flow data between 1947-1967 for the full 20 years and make into a list 
-Compare 1947-1967 full stations to the postdam station list to see if there are any potentialities there 
-```{r} 
-
-#make as a list of characters
-as.list(as.character(predam_st_7_stns))
-
-
-unique(postdam_stations[postdam_stations %in% predam_st_7_stns])
-#there are none unfortunately 
-```
-
-```
 
 #compare two lists of station numbers to see if any are in common
-This is useful for finding the same pre and post dam stations
-
-```{r}
+#This is useful for finding the same pre and post dam stations
 
 unique(postdam_stations[postdam_stations %in% predam_stations])
 
@@ -117,7 +28,7 @@ dfFlow_subset[[st]] <- data.frame(data)
 
 ```
 
-## checking that the above worked ##
+## checking that the above worked
 
 ```{r}
 
@@ -128,85 +39,201 @@ for (df in dfFlow_subset) {
 
 ```
 
-## Splitting the list of data frames into two separate lists: ones that have "B' or "not B", which has to do with ice coverage
-
+#keep this, it's useful if need to go back to using metadata to graph- ie just looking at year and not percentage of years
 ```{r}
 
-open_water = list()
-year_round = list()
+#Create a new column with a year for every single year between the "year_from" and "year_to" columns. 
 
-for (df in dfList) {
-  if("B" %in% df$Symbol) {
-    open_water = append(open_water, df)
-  } else {
-    year_round = append(year_round, df)
-  }  }
-
+Stations_metadata_FLOW <- Stations_metadata_onelist %>%
+  dplyr::select(-c(MEASUREMENT)) %>%
+ dplyr::filter(DATA_TYPE == "Flow" ) %>%
+tidyr::unite("Unique_Id", c("STATION_NUMBER", "OPERATION", "DATA_TYPE" ), sep = "_", remove = FALSE ) %>%
+dplyr::mutate(Year_from = as.integer(Year_from), Year_to = as.integer(Year_to)) %>%
+dplyr::mutate(year = map2(Year_from, Year_to, ~seq(.x, .y), .id = "year")) %>%
+ tidyr::unnest(cols = c(year))
 
 ```
 
-## QA/QC checks on the above open water and ice data to make sure they are correctly separated
-```{r}
+## GRAPHING FUNCTIONS AND MISC GRAPH CODE ##
 
-for (df in open_water) {
-  if ("B" %in% df$Symbol){
-    print("Open water data are correct")
-  } else {
-    print("Open water data are incorrectly separated, there are stations with Ice")
-  }
-}
-#add exception for no df in list
-```
-
-##Find how many consecutive Nas there are in a row and flag somehow.
-
-Note: this code hasn't been working- so far I have been doing the IHA calculations and seeing which months are missing, then going back and deleting those years
-```{r}
-
-
-for (df in dfFlow_subset) {
-  if (length(is.na(df$Value)) >= 14.0) {
-    print("There are 14 or more NAs in a row for these dates: ")
-} else {
-    print("there are not 14 or more NAs in a row") #need to mutate a new column with "flagged"
-  } }
-
-#x = is.na(dfList_subset$'07DA045'$Value)
-#rle(x)$lengths[rle(x)$values]
-```
-
-#Still trying...sad face...
-```{r}
-flow_subset_onelist[max(with(rle(is.na(x)), lengths[values])), by = Symbol]
-
-```
-
+Line graph of one IHA output variable at a time. Coloured by time period (pre/post dam).
 
 ```{r}
 
-is.na.rle <- rle(is.na(flow_subset_onelist[,1]))
-is.na.rle$Values <- is.na.rle$Values & is.na.rle$lengths >= 14
-flow_subset_onelist[!inverse.rle(is.na.rle),]
-
-
-
-```
-
-Tryingt to make two lists, one with Nas >14, one with <14
-
-```{r}
-
-find_consec_nas <- function(df) {
-  nas <- is.na(df$Value)
-  rle_nas = fle(nas)
+ggplot(data = IHA_both, aes(x =Year, y = Reversals, group = 1) ) +
+          geom_line(aes(colour = Time_Period) ) +
+      geom_point(aes(colour = Time_Period)) +
+  ggtitle( "07NB001 \n Reversals") +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7)) +
+  geom_line(data = IHA_predam_summary, y =  Reversals) +
+   scale_colour_discrete(na.translate = F)
   
-  df$flag_col <-ifelse(rle_nas$Value[rle_nas$lengths >= 14],
-                       "more than 14", "less than 14")
-                       return(df)
+
+```
+
+Line graphs of all IHA variables, where x= year and y = each variable in succession.
+Coloured by time period (pre/post dam).
+
+```{r}
+
+dontgraphme <- c("Year", "Time_Period", "Zero flow days", '1 Day Min', '3 Day Min', '7 Day Min', '30 Day Min', '90 Day Min', '1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max' , '90 Day Max','October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September')
+
+list_plots <- vector('list', length(cols))
+
+for (col in names(IHA_both)[!names(IHA_both) %in% dontgraphme]) {
+  print(ggplot(data = IHA_both, aes(x = Year, y = IHA_both[,col], group = 1 )) +
+          geom_line(aes(colour = Time_Period) ) +
+      geom_point(aes(colour = Time_Period)) +
+  ggtitle(col)  +
+    ylab(col) +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.position=c(0.87, 0.8), legend.title=element_text(size=8), legend.text=element_text(size=7))+
+       scale_colour_discrete(na.translate = F)) 
+   print(list_plots[col])
+
 }
 
-dfLevel_subset <- lapply(dfLevel_subset, find_consec_nas)
 
+```
+Boxplots of IHA variables: 
+
+Y = flow and x = the IHA variables passed in to the function.
+
+Coloured by time period (pre/post dam).
+
+Minimum flow
+```{r}
+
+boxplot_min <- function(df) {
+
+p <-  IHA_both %>% 
+  na.omit() %>%
+  select('Year', '1 Day Min', '3 Day Min', '7 Day Min', '30 Day Min', '90 Day Min', 'Time_Period') %>%
+  pivot_longer(., cols = c('1 Day Min', '3 Day Min', '7 Day Min','30 Day Min' , '90 Day Min'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
+facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+geom_boxplot() +
+  geom_point() +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+       theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+  scale_fill_manual(values = c("orange","light blue"), 
+                    labels = c("Pre Dam", "Post Dam")) +
+  xlab("") +
+  ylab("Flow") 
+
+return(p)
+
+}
+
+```
+
+Boxplots of IHA variables: 
+
+Maximum Flow
+```{r}
+
+
+boxplot_max <- function(df) {
+
+
+p <-  IHA_both %>% 
+  na.omit() %>%
+  select('Year', '1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max' , '90 Day Max','Time_Period') %>%
+  pivot_longer(., cols = c('1 Day Max', '3 Day Max', '7 Day Max', '30 Day Max', '90 Day Max'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
+facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+geom_boxplot() +
+  geom_point() +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+  scale_fill_manual(values = c("orange","light blue"), 
+                    labels = c("Pre Dam", "Post Dam")) +
+  xlab("") +
+  ylab("Flow") 
+
+return(p)
+
+}
+
+
+```
+
+Boxplots of IHA variables: 
+
+Flow by month
+```{r}
+
+boxplot_month <- function(df) {
+  
+p <-  IHA_both %>% 
+  na.omit() %>%
+  select('Year', 'October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September', 'Time_Period') %>%
+  pivot_longer(., cols = c('October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September'), names_to = "Var", values_to = "Val") %>%
+  ggplot(aes(x = Var, y = Val, fill = Time_Period)) +
+facet_grid(~factor(Time_Period, levels=c('Pre Dam','Post Dam'))) +
+geom_boxplot() +
+  #geom_point() +
+  theme_bw() +
+    theme(plot.title =  element_text(size = 10, hjust = .5, face = "bold")) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle( "Station 07NB001") +
+    theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid')) +
+  theme(legend.title=element_text(size=8), legend.text=element_text(size=7))+
+  scale_fill_manual(values = c("orange","light blue"), 
+                    labels = c("Pre Dam", "Post Dam")) +
+ aes(x = fct_inorder(Var)) +
+  xlab("Month") +
+  ylab("Flow") 
+
+return(p)
+
+}
+
+```
+
+```{r}
+IHA_output_predam %>% 
+  na.omit() %>%
+  select('Year', 'October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September', 'Time_Period') %>%
+  pivot_longer(., cols = c('October', 'November', 'December', 'January' , 'February', 'March', 'April', 'May', 'June','July', 'August', 'September'), names_to = "Var", values_to = "Val") %>%
+ggplot(aes(x = Var, 
+           y = Val, 
+           group = Var,
+           color = Var)) +
+  stat_summary(fun.y = "mean", geom = "point") # +
+ # stat_summary(fun.y = "mean", geom = "line") +
+   # stat_summary(fun.data = "mean_se", geom = "errorbar") # adding error bars (standard error)
+```
+
+
+```{r}
+#Graphing IHA DATA IN LAYERS WITH TWO DIFFERENT DF##
+
+ggplot(data = IHA_output_predam, aes(x=Year, y = Reversals, group = 1)) +
+  geom_line(colour = 'blue') +
+  geom_point(colour = 'blue') +
+  geom_line(data = IHA_output_postdam, aes(x=Year, y = Reversals, group = 1), colour = 'orange') +
+  geom_point(data = IHA_output_postdam, aes(x=Year, y = Reversals, group = 1), colour = 'orange')  +
+  ggtitle( "07NB001 \nReversals") +
+  theme_bw()+  
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  theme(plot.title =  element_text(size = 10, hjust = .5)) +
+  theme(legend.position = "top right") 
 
 ```
 
