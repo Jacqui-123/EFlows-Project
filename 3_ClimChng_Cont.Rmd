@@ -349,7 +349,6 @@ df_ICE_post_final <- df_ICE_post[!duplicated(as.list(df_ICE_post))] #removed dup
 View(df_ICE_post_final)
 
 ```
-
 #Percent change, IHA Variables 
 ```{r}
 #data prep, IHA-pre
@@ -440,11 +439,31 @@ final_pc_ICE <- bind_rows(df_lst) %>%
 
 View(final_pc_ICE)
 
-write.csv(final_pc_ICE, "PC_ICE.csv")
+#write.csv(final_pc_ICE, "PC_ICE.csv")
 ```
+
+#Mann-Kendall Trend Analysis 
 
 ```{r}
 
+DY <- calc_MK(df_ICE_post_final, parameter = Day_of_year, start = 2007) %>%
+  rename("Result_Freshet_Onset" = 'P_Value' )
+
+Icecover <- calc_MK(df_ICE_post_final, parameter = Ice_coverage_wy, start = 2007)%>%
+  rename("Result_Ice_cover" = 'P_Value' )
+
+frdoy <- calc_MK(df_ICE_post_final, parameter = Freeze_DOY, start = 2007) %>%
+  rename("Result_freeze_doy" = 'P_Value' )
+
+thawdoy <- calc_MK(df_ICE_post_final, parameter = Thaw_DOY, start = 2007)%>%
+  rename("Result_thaw_doy" = 'P_Value' )
+
+result <- cbind(DY, Icecover, frdoy, thawdoy)
+MK_result_final <- result[!duplicated(as.list(result))] #removed duplicated columns
+
+View(MK_result_final)
+#write.csv(MK_result_final, "MKres.csv")
+```
 ```
 
 ```{r}

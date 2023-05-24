@@ -1,7 +1,7 @@
 
 Long term, Continuous Stations - From Tidyhydat & the Water Survey of CA.
 
-Variables Calculated: IHA, ICE, and Percent Change
+Variables Calculated: IHA, ICE
 Run "Eflows_FUNCTIONS.R" before running this file.
 
 
@@ -15,13 +15,18 @@ library(lubridate)
 library(ggplot2)
 library(dataRetrieval)
 library(timetk)
+library(forecast)
+library(Kendall)
+library(trend)
+library(outliers)
+
 
 ```
 
 
 ```{r}
 #get stns for this analysis
-stn_all <- hy_daily_flows(station_number = c( "07BE001", "07BC002", "07CD001", "07DA001", "07GH002", "07GJ001", "07HA001", "07NB001", '07AF002')) 
+stn_all <- hy_daily_flows(station_number = c("07BE001", "07BC002", "07CD001", "07DA001", "07GH002", "07GJ001", "07HA001", "07NB001", '07AF002')) 
 
 stn_all <- stn_all %>%
 group_by(STATION_NUMBER) %>%
@@ -195,7 +200,6 @@ output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
 
 
 ```{r}
-
 #Deal with each output df having different lengths and not being able to combine them
 
 #find max and min years for each result df
@@ -229,18 +233,413 @@ df_ICE_final <- df_ICE[!duplicated(as.list(df_ICE))] #removed duplicated columns
 View(df_ICE_final)
 
 #write.csv(df_ICE_final, "ICE.csv")
+```
+
+#Mann-Kendall Trend Analysis 
+
+```{r}
+
+DY <- calc_MK(df_ICE_final, parameter = Day_of_year, start = 1956) %>%
+  rename("Result_Freshet_Onset" = 'P_Value' )
+
+Icecover <- calc_MK(df_ICE_final, parameter = Ice_coverage_wy, start = 1956)%>%
+  rename("Result_Ice_cover" = 'P_Value' )
+
+frdoy <- calc_MK(df_ICE_final, parameter = Freeze_DOY, start = 1956) %>%
+  rename("Result_freeze_doy" = 'P_Value' )
+
+thawdoy <- calc_MK(df_ICE_final, parameter = Thaw_DOY, start = 1956)%>%
+  rename("Result_thaw_doy" = 'P_Value' )
+
+result <- cbind(DY, Icecover, frdoy, thawdoy)
+MK_result_final <- result[!duplicated(as.list(result))] #removed duplicated columns
+
+View(MK_result_final)
+write.csv(MK_result_final, "MKres.csv")
+
+STOP
+```
+
+#Mann-Kendall Trend Analysis - working and testing ARIMA model
+(can ignore and use code above)
+
+```{r}
+stn_07BE001 <- stn_07BE001 %>%
+  dplyr::filter(lubridate::year(Date) > 1955) %>%
+  dplyr::filter(lubridate::year(Date) < 2022) 
+
+TS_07BE001 <- ts(stn_07BE001$Value, 
+        frequency = 365, #daily data (no NAs present, and full seq of years are present)
+         start = c(1956,1)) #1 is day of the year that data starts ie Jan 1
+
+plot.ts(TS_07BE001) #additive model could work, bc fluctuations in the data are more or less constant over time. 
 
 ```
 
+```{r}
+TS_07BE001_timecompon <- decompose(TS_07BE001) #decompose into seasonal comp, irreg, trend comp.
+
+plot(TS_07BE001_timecompon) #doesn't look like there is a trend
+
+#subtract the estimated seasonal comp from the original time series to get rid of seasonal component 
+TS_07BE001_seasonadj <- TS_07BE001 - TS_07BE001_timecompon$seasonal
+
+plot(TS_07BE001_seasonadj) #this contains the trend component and the irregular component
+```
+
+
+```{r}
+## Mann-Kendall test
+
+MK <- MannKendall(TS_07BE001) #p = .70
+MK_seas <- MannKendall(TS_07BE001_seasonadj) #p = .2
+summary(MK)
+
+```
+
+
+```{r}
+#try Seasonal MK using Monthly data
+##NOTE: will be off by one year. Need to re-do the IHA calcs for the calendar year and not WY.
+
+#get df of monthly statistics using IHA calcs
+mnth_07BE001 <- IHA %>%
+  filter(STATION_NUMBER == "07BE001") %>%
+  select(Year:September) %>% 
+  pivot_longer(c('October', 'November', 'December', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September'), names_to = "Month", values_to = "Value") %>%
+  mutate(Month = recode(Month, 
+                  January = 01,
+                        February = 02,
+                        March = 03,
+                        April = 04,
+                        May = 05,
+                        June = 06,
+                        July = 07,
+                        August = 08,
+                        September = 09,
+                        October = 10,
+                        November = 11,
+                        December = 12))
+
+
+TS_mnth <- ts(mnth_07BE001$Value, frequency = 12, start = c(1956, 10))
+```
 
 
 ```{r}
 
+#decompose monthly data and remove seasonal component
+TS_mnth_decomp <- decompose(TS_mnth)
+TS_mnth_adj <- TS_mnth - TS_mnth_decomp$seasonal
+
+##DECOMPOSED TS
+#MK on decomposed data 
+MannKendall(TS_mnth_adj) #.35
+SeasonalMannKendall(TS_mnth_adj) #p = .78
+
+#Sen's slope and Pettitt's test on decomposed data
+sens.slope(TS_mnth_adj) 
+sea.sens.slope(TS_mnth_adj)
+pettitt.test(TS_mnth_adj) #get diff pvalues??? p = 00.00129
+
+#NON DECOMPOSED TS
+#MK on non decomposed data 
+MannKendall(TS_mnth) #p = .875
+SeasonalMannKendall(TS_mnth) #p= .79 can do: smk.test(TS_mnth)
+
+#Sen's slope and Pettitt's test on non-decomposed data 
+sens.slope(TS_mnth) 
+sea.sens.slope(TS_mnth)
+pettitt.test(TS_mnth) #p= .6315 
+
+#use original df and input "K" to get the date of the probably change point.
+mnth_07BE001[667,] #suggests change point in 2011, but p = .6315
+
+?SeasonalMannKendall()
+#score is computed separately for each month 
+#unsure if this works for our data bc we'd expect more flow in winter and less flow in summer. Trend is not monotonic. 
+#can we deal with the lack of monotonic trends by doing a MK only across summer months, or winter months, to see a monotonic trend? Ie less flow in summer? And more in winter? 
+
+#to do this, would need to figure out how to make a time series obj just for a certain month?
+
+
 ```
+
 
 
 
 ```{r}
+#Try a MK test just for one month: August
+
+library("TTR")
+
+mnth_07BE001_aug <- mnth_07BE001 %>%
+  filter(Month == 8)
+  
+TS_Aug <- ts(mnth_07BE001_aug$Value, frequency = 1, start = c(1956, 1))
+
+MannKendall(TS_Aug) #p = .12
+sens.slope(TS_Aug) #m = -1.5
+pettitt.test(TS_Aug) #p = .06, change pnt 46
+mnth_07BE001_aug[46,] #year = 2001
+
+plot(TS_Aug)
+
+#smoothing with a moving avg (can't decomp seasonally, there is no seasonal component)
+TS_Aug_SMA <- SMA(TS_Aug, n = 9)
+plot(TS_Aug_SMA)
+
+
+#looking at outliers 
+library(outliers)
+grubbs.test(mnth_07BE001_aug$Value) #1989 is an outlier
+
+#remove outlier then re-try test
+
+mnth_07BE001_aug_rmout <- mnth_07BE001 %>%
+  filter(Month == 8) %>%
+  filter(Year != 1989)
+
+TS_Aug_rm <- ts(mnth_07BE001_aug_rmout$Value, frequency = 1, start = c(1956,1))
+
+MannKendall(TS_Aug_rm) #p = .12
+sens.slope(TS_Aug_rm) #m = -1.5
+pettitt.test(TS_Aug_rm) #p = .07, change pnt 46
+mnth_07BE001_aug[46,] #year = 2001
+
+#removing outlier didn't do much 
+```
+
+#ARIMA
+```{r}
+TS_mnth_diff <- diff(TS_mnth, differences = 2)
+
+plot.ts(TS_mnth_diff)
+
+acf(TS_mnth_diff, lag.max = 20) #1,2 exceed sign bounds
+acf(TS_mnth_diff, lag.max = 20, plot = FALSE)
+
+pacf(TS_mnth_diff, lag.max = 20)
+pacf(TS_mnth_diff, lag.max = 20, plot = FALSE)
+
+library('forecast')
+auto.arima(TS_mnth)
+TS_mnth_arima <- arima(TS_mnth, order = c(1,1,1) )
+TS_mnth_forecast <- forecast(TS_mnth_arima, h = 5)
+
+plot(TS_mnth_forecast)
+
+#are the forecast errors N distributed with mean zero, constant variance 
+acf(TS_mnth_forecast$residuals, lag.max = 20)
+Box.test(TS_mnth_forecast$residuals, lag = 20, type = "Ljung-Box") #high evidence for non-zero correlations in the forecast errors 
+
+plot.ts(TS_mnth_forecast$residuals)
+plotForecastErrors(TS_mnth_forecast$residuals)
+
+hist(TS_mnth_forecast$residuals)
+
+d <- density(TS_mnth_forecast$residuals)
+plot(d)
 
 ```
+
+#try MK with yearly timing of freshet for a station on the PEace or Slave River
+```{r}
+
+stn_07HA001 <- df_ICE_final %>%
+  filter(STATION_NUMBER == "07HA001") %>%
+  filter(waterYear > 1958) %>%
+  filter(waterYear < 2021)
+
+TS_07HA001 <- ts(stn_07HA001$Day_of_year, 
+        frequency = 1,
+         start = c(1959,1))
+
+plot.ts(TS_07HA001) 
+MK <- MannKendall(TS_07HA001) #p = .016
+sens.slope(TS_07HA001) #won't work with NAS
+pettitt.test(TS_07HA001) #won't work with NAs
+
+
+```
+
+
+#Try stns on the peace, slave for timing of freshet 
+
+```{r}
+stns_ice <- tidyhydat::hy_daily_flows(station_number = c("07HA001", "07EF001", "07FD002", "07NB001", "07KC001"))
+
+stns_ice <- stns_ice %>%
+group_by(STATION_NUMBER) %>%
+#make a complete set of days for each year 
+complete(Date = seq.Date(as.Date("1920/10/1"), as.Date("2022/09/30"), by="day"))
+
+#add water year
+stns_ice <- addWaterYear(stns_ice) %>%
+mutate(waterYear = as.character(waterYear))
+
+#add day of the year
+stn_ice_split <- split(stns_ice, stns_ice$STATION_NUMBER )
+stn_ice_split_doy <- lapply(stn_ice_split, calc_day_of_wyear)
+stn_ice <- bind_rows(stn_ice_split_doy, .id = "STATION_NUMBER")
+
+rm(stn_ice_split, stn_ice_split_doy)
+```
+
+
+```{r}
+stn_cln_ice <- stn_ice %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(waterYear > 1961) %>%
+  filter(waterYear < 2021)
+
+#print out rows with > 14 Nas in a row
+lst_stns_cln_ice <- split(stn_cln_ice, stn_cln_ice$STATION_NUMBER )
+lst_stns_ice_rle <- lapply(lst_stns_cln_ice, calc_rle)
+
+for (i in lst_stns_ice_rle) {
+  for (j in i)
+    stn <- unique(i$STATION_NUMBER)
+    wy <- unique(i$waterYear)
+    print("delete the following station # and water year:")
+    print(stn)
+    print(wy)
+}
+
+
+stn_cln_ice <- stn_ice %>%
+  filter(waterYear > 1961) %>%
+  filter(waterYear < 2021) %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(!c(STATION_NUMBER == "07EF001" & waterYear == 2019)) %>%
+  filter(!c(STATION_NUMBER == "07EF001" & waterYear == 2020)) %>%
+  filter(!c(STATION_NUMBER == "07FD002" & waterYear == 2011)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2008)) %>%   
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2009)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+```
+
+
+```{r}
+#make a list of dfs- split by station number
+lst_stns <- split(stn_cln_ice, stn_cln_ice$STATION_NUMBER )
+
+#apply ice variable function to all dfs in the list
+stn_g1 <- lapply(lst_stns, Group_1_ice_cover)
+stn_g3 <- lapply(lst_stns, Group_3_freshet)
+
+#Combine all outputs into one df
+output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER")
+output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
+
+#find max and min years for each result df to make sure have a complete set of years
+minyr01 <- min(output1$waterYear)
+maxyr01 <- max(output1$waterYear)
+
+minyr03 <- min(output3$waterYear)
+maxyr03 <- max(output3$waterYear)
+
+#expand data set to include all years for all output dfs
+output3_ex <- output3 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyr03:maxyr03) #fills NA for values for missing years
+```
+
+#MK timing of freshet 
+```{r}
+stn_07KC001 <- output3_ex %>%
+  filter(STATION_NUMBER == "07KC001") %>%
+  filter(Day_of_year != 154) %>% #2011
+    filter(Day_of_year != 155) %>% #2015
+      filter(Day_of_year != 256) %>% #2012
+        filter(Day_of_year != 240) %>% #1978
+        na.omit()
+
+grubbs.test(stn_07KC001$Day_of_year)
+
+#"07HA001", "", "07FD002", "07NB001", "07KC001"))
+
+TS_07KC001 <- ts(stn_07KC001$Day_of_year, frequency = 1, start = c(1962,1))
+
+plot(TS_07KC001)
+MannKendall(TS_07KC001) #p = .007
+sens.slope(TS_07KC001) #.38, .45: pos slope means increasing?
+pettitt.test(TS_07KC001) #28-1998, with outliers removed
+
+plot.ts(TS_07KC001)
+
+TS_07KC001_diff <- diff(TS_07KC001, differences = 1)
+plot.ts(TS_07KC001_diff)
+
+#freshet happening later
+```
+
+
+```{r}
+
+stn_07HA001 <- output3_ex %>%
+  filter(STATION_NUMBER == "07HA001") %>%
+  na.omit()
+
+TS_07HA001 <- ts(stn_07HA001$Day_of_year, 
+        frequency = 1,
+         start = c(1962,1))
+
+plot.ts(TS_07HA001) 
+MK <- MannKendall(TS_07HA001) #p = .05 without the NAs???
+sens.slope(TS_07HA001) #.32... increasing!
+pettitt.test(TS_07HA001) 
+
+
+```
+
+
+```{r}
+
+stn_07KC001 <- output3_ex %>%
+  filter(STATION_NUMBER == "07HA001") 
+
+
+```
+
+#MK ice coverage
+```{r}
+
+stn_07HA001 <- output1_ex %>%
+  filter(STATION_NUMBER == "07HA001")
+
+TS_07HA001 <- ts(stn_07HA001$Ice_coverage_wy, frequency = 1, start = c(1962, 1))
+
+plot.ts(TS_07HA001)
+
+MannKendall(TS_07HA001) # p = 0.0
+sens.slope(TS_07HA001) #-1.15
+pettitt.test(TS_07HA001) #chng pnt
+stn_07HA001[25,] #1986
+
+```
+
+```{r}
+#ice coverage
+stn_07KC001 <- output1_ex %>%
+  filter(STATION_NUMBER == "07KC001") %>%
+  filter(waterYear != 2006) %>%
+  filter(waterYear != 1968) %>%
+  na.omit()
+
+grubbs.test(stn_07KC001$Ice_coverage_wy)
+
+TS_07KC001 <- ts(stn_07KC001$Ice_coverage_wy, frequency = 1, start = c(1962,1))
+
+MannKendall(TS_07KC001) #p = .054
+sens.slope(TS_07KC001)  #-.2
+pettitt.test(TS_07KC001) #chng pnt 35, 1997
+
+```
+
 

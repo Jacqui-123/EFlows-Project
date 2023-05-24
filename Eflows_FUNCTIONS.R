@@ -244,7 +244,7 @@ library(dataRetrieval)
           doy <- df_subset$day_of_year[f_index]
           # print(dt) 
           #  print(fl)
-          #  print("end") 
+          #  print("end")
           date_lst[[i]] <- dt 
           flow_lst[[i]] <- fl 
           stn_nu[[i]] <- st
@@ -297,7 +297,42 @@ library(dataRetrieval)
       rename("Year" = "x")
   }
   
-#######PART 5 - MISC FUNCTIONS NO LONGER USING BUT STILL USEFUL#####
+#######PART 5 - MANN KENDALL#####
+  
+  #Perform mann-kendall test for each "STATION_NUMBER" in a dataframe
+  #parameter = col_variable to calculate MK test (must be annual variable)
+  #start = start year
+  
+  
+  calc_MK <- function(data, parameter, start) { 
+    plst <- list()
+    stn_list <- list()
+    for (i in unique({{data}}$STATION_NUMBER)) {
+      #subset the data by stn number
+      df_subset <- {{data}}[{{data}}$STATION_NUMBER == i,]
+      #get the stn number for each iteration and append to a list
+      #stn_num <- i
+      stn_list[[i]] <- i
+      
+      col_var <- df_subset %>% pull({{parameter}}) 
+      #df subset to a ts object and run MK analysis 
+      TS <- ts(col_var, frequency = 1, start = c({{start}}, 1))
+      MK <- MannKendall(TS)
+      #append pvalue to a list 
+      pval <- as.numeric(MK$sl)
+      plst[[i]] <- pval
+      #unlist, rename etc
+      df <- as.data.frame(unlist(plst))
+      names(df) <- "P_Value"
+      final_MK <- rownames_to_column(df, "STATION_NUMBER") %>% 
+        mutate(Interpretation = case_when(P_Value <= .05 ~ "Signficant", .default =  "Not Significant")) 
+    }
+    return(final_MK)
+  }  
+  
+  
+  
+#######PART 6 - MISC FUNCTIONS NO LONGER USING BUT STILL USEFUL#####
   
  # Find missing years
   

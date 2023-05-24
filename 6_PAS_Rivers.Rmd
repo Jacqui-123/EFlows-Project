@@ -1,0 +1,294 @@
+Peace River, Athabasca River, and Slave River Stations - From Tidyhydat & the Water Survey of CA.
+
+Variables Calculated: IHA, ICE
+Run "Eflows_FUNCTIONS.R" before running this file.
+
+
+```{r, echo=FALSE}
+
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+library(dataRetrieval)
+library(timetk)
+library(forecast)
+library(Kendall)
+library(trend)
+library(outliers)
+
+
+```
+
+
+```{r, echo=FALSE}
+#get stns for this analysis
+stn_all <- hy_daily_flows(station_number = c('07BE001','07DA001', '07HA001','07NB001', '07KC001', '07AD002','07DA001', '07AA002')) 
+
+stn_all <- stn_all %>%
+group_by(STATION_NUMBER) %>%
+#make a complete set of days for each year 
+complete(Date = seq.Date(as.Date("1920/10/1"), as.Date("2022/09/30"), by="day"))
+
+#add water year
+stn_all <- addWaterYear(stn_all) %>%
+mutate(waterYear = as.character(waterYear))
+
+#add day of the year
+stn_all_split <- split(stn_all, stn_all$STATION_NUMBER )
+stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
+stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
+
+rm(stn_all_split, stn_all_split_doy)
+
+```
+
+# Tidy Stations
+```{r, echo=FALSE}
+
+stn_cln <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(waterYear > 1960) %>%
+  filter(waterYear != 2022)
+
+#print out rows with > 14 Nas in a row
+lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
+
+for (i in lst_stns_cln_rle) {
+  for (j in i)
+    stn <- unique(i$STATION_NUMBER)
+    wy <- unique(i$waterYear)
+    print("delete the following station # and water year:")
+    print(stn)
+    print(wy)
+}
+
+
+#delete the rows with >14 NAs, printed from above, and fill any values that are missing with preceding values 
+stn_cln <- stn_all %>%
+    filter(waterYear > 1960) %>%
+  filter(waterYear != 2022) %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2008)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2009)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07AD002" & waterYear == 1961)) %>%
+  filter(!c(STATION_NUMBER == "07AD002" & waterYear == 2016)) %>%
+  filter(!c(STATION_NUMBER == "07AD002" & waterYear == 2017)) %>%
+  filter(!c(STATION_NUMBER == "07AD002" & waterYear == 2018)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1961)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1962)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1963)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1964)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1965)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1966)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1967)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1968)) %>%  
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1969)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1970)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 2017)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 2018)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1964)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1970)) %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+```
+
+# IHA calcs
+```{r, echo=FALSE}
+
+#make a list of dfs- split by station number
+lst_stns <- split(stn_cln, stn_cln$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
+View(IHA)
+
+#write.csv(IHA, "IHAlongterm.csv")
+```
+
+
+```{r, echo=FALSE}
+
+#Date must be in yyyy-mm-dd format for ice variables- so re-run tidying code for pre and post dfs without the line that mutates to dd-mm-yyyy format. 
+#don't forget to keep the symbol column
+#delete the rows with >14 NAs, printed from above, and fill any values that are missing with preceding values 
+stn_cln <- stn_all %>%
+    filter(waterYear > 1960) %>%
+  filter(waterYear != 2022) %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
+  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
+  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2008)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2009)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2013)) %>%
+  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2021)) %>%
+  filter(!c(STATION_NUMBER == "07AD002" & waterYear == 1961)) %>%
+  filter(!c(STATION_NUMBER == "07AD002" & waterYear == 2016)) %>%
+  filter(!c(STATION_NUMBER == "07AD002" & waterYear == 2017)) %>%
+  filter(!c(STATION_NUMBER == "07AD002" & waterYear == 2018)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1961)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1962)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1963)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1964)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1965)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1966)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1967)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1968)) %>%  
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1969)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 1970)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 2017)) %>%
+  filter(!c(STATION_NUMBER == "07AA002" & waterYear == 2018)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1964)) %>%
+  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1970)) %>%
+  #mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') 
+
+```
+
+#ICE Variables - pre
+```{r, echo=FALSE}
+#make a list of dfs- split by station number
+lst_stns <- split(stn_cln, stn_cln$STATION_NUMBER )
+
+#apply ice variable function to all dfs in the list
+stn_g1 <- lapply(lst_stns, Group_1_ice_cover)
+stn_g2 <- lapply(lst_stns, Group_2_freeze_thaw)
+stn_g3 <- lapply(lst_stns, Group_3_freshet)
+
+#Combine all outputs into one df
+output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER") 
+output2 <- bind_rows(stn_g2, .id = "STATION_NUMBER")
+output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
+
+```
+
+
+```{r, echo=FALSE}
+
+#Deal with each output df having different lengths and not being able to combine them
+
+#find max and min years for each result df
+minyro1 <- min(output1$waterYear)
+maxyro1 <- max(output1$waterYear)
+
+minyro2 <- min(output2$waterYear)
+maxyro2 <- max(output2$waterYear)
+
+minyro3 <- min(output3$waterYear)
+maxyro3 <- max(output3$waterYear)
+
+
+#expand data set to include all years for all output dfs
+output1_ex <- output1 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
+
+output2_ex <- output2 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
+
+output3_ex <- output3 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
+
+df_ICE <- cbind(output1_ex, output2_ex, output3_ex)
+
+df_ICE_final <- df_ICE[!duplicated(as.list(df_ICE))] #removed duplicated columns
+
+View(df_ICE_final)
+
+#write.csv(df_ICE_final, "ICE.csv")
+
+```
+
+#Mann-Kendall Trend Analysis 
+
+```{r}
+
+
+DY <- calc_MK(df_ICE_final, parameter = Day_of_year, start = 1961) %>%
+  rename("Result_Freshet_Onset" = 'P_Value' )
+
+Icecover <- calc_MK(df_ICE_final, parameter = Ice_coverage_wy, start = 1961)%>%
+  rename("Result_Ice_cover" = 'P_Value' )
+
+frdoy <- calc_MK(df_ICE_final, parameter = Freeze_DOY, start = 1961) %>%
+  rename("Result_freeze_doy" = 'P_Value' )
+
+thawdoy <- calc_MK(df_ICE_final, parameter = Thaw_DOY, start = 1961)%>%
+  rename("Result_thaw_doy" = 'P_Value' )
+
+result <- cbind(DY, Icecover, frdoy, thawdoy)
+MK_result_final <- result[!duplicated(as.list(result))] #removed duplicated columns
+
+View(MK_result_final)
+#write.csv(MK_result_final, "MKres.csv")
+```
+
+
+```{r}
+
+
+```
+
+
+```{r}
+
+df_ICE_final %>%
+  #filter(Watershed == "B") %>%
+#filter(Station_Number == "07BK007" | Station_Number == "07BE001" | Station_Number == "07FD002") %>%
+ggplot(aes(y= Day_of_year, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
+  geom_line(linewidth = .75) +
+  #annotate(geom = "text", x = 43, y = 25, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+ #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+  # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002
+  #geom_hline(yintercept = 0, linetype = "dotted") +
+scale_x_discrete(breaks = seq(1960, 2020, 3)) +
+#ylim(0, 150) +
+theme_classic() +
+ggtitle("Reversals: 1975-2020") +
+  xlab(" ") +
+  ylab("Reversals") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+#scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
+
+```
+
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+
+
+
+
+```{r}
+
+
+```
