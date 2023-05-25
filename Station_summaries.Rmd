@@ -1,10 +1,24 @@
 
-## Stations Meta Data Graphing
+## Data Availability for Water Survey of Canada Stations
 
-Here we have tidied, cleaned and graphed the data availability for all stations within the PAD, broken down by watershed, sorted from upstream to downstream and dividided by data type (water level and flow).
+These graphs visualize the availability of water flow and level data for over 400 water survey stations within the Peace Athabasca Delta. This work was done to support the analysis of environmental flows within Wood Buffalo National Park in Canada. 
 
-Import libraries
-```{r}
+I graphed these stations to be able to more easily select water stations for analyses. Rivers experience natural variation over time, both seasonally and even from year to year. The timing, volume, length of time, and variability of river flow is called a river's hydrological regime. 
+
+In order to understand how a river or a watershed's hydrological regime is changing over time, you often need multiple points of data along several watersheds, with daily flow measurements over many consecutive years. 
+
+Visualizing which stations have overlapping data in different watersheds will make it much easier for me and others on my team to pick water stations to analyze. 
+
+I graphed these stations by watershed and sorted from upstream to downstream. They are separated by data type: water level and flow.
+
+Open-source hydrological data from the Water Survey of Canada: 
+https://www.canada.ca/en/environment-climate-change/services/water-overview/quantity/monitoring/survey.html 
+
+Open-sourced R packages used to tidy data and create tile plots: tidyverse, tidyhydat, zoo, lubridate, ggplot
+
+Source code: https://github.com/Jacqui-123/EFlows-Project/blob/main/Station_summaries.Rmd 
+
+```{r, echo = FALSE, include=FALSE}
 
 library(png)
 library(reticulate)
@@ -18,7 +32,7 @@ library(ggplot2)
 ```
 
 
-```{r}
+```{r, echo = FALSE, include=FALSE}
 #1) Dataframe of all daily flow for all stations 
 
 ALL_FLOWS <- tidyhydat::hy_daily_flows(station_number = c("07AA001", "07AA002", "07AA003", "07AA004", "07AA007", "07AA008", "07AA009", "07AA010", "07AB002", "07AC001", "07AC002", "07AC003", "07AC004", "07AC005", "07AC006", "07AC007", "07AC008", "07AD001", "07AD002", "07AD003", "07AD004", "07AD005", "07AD006", "07AD007", "07AD008", "07AD009", "07AD010", "07AE001", "07AE002", "07AE003", "07AF001", "07AF002", "07AF003", "07AF004", "07AF005", "07AF008", "07AF009", "07AF010", "07AF011", "07AF012", "07AF013", "07AF014", "07AF015", "07AF016", "07AF906", "07AF907", 
@@ -63,7 +77,7 @@ mutate_if(is.numeric, ~replace(., is.na(.), 0))
 ```
 
 ```{r, echo = FALSE, include = FALSE}
-#Graphing test - this works and looks good 
+#Graphing test for one watershed - this works and looks good, now make a function
 
 test_flows_daily_test %>%
   filter(Watershed == "07A") %>%
@@ -71,7 +85,7 @@ test_flows_daily_test %>%
   geom_tile(colour = "white", lwd = 0.5, linetype = 1) +
   theme_bw() +
     scale_y_discrete(limits=rev) +
-  theme(axis.text.y =  element_text( size = 7, face = 'bold')) +
+  theme(axis.text.y =  element_text( size = 6, face = 'bold')) +
     scale_x_discrete(breaks = seq(1912, 2023, 2)) +
     theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 7, face = 'bold')) +
   theme(axis.text.y =  element_text(size = 6)) +
@@ -97,7 +111,6 @@ group_by(STATION_NUMBER) %>%
 
 ```{r, echo = FALSE, include = FALSE}
 
-
 ALL_FLOWS <- ALL_FLOWS_y %>%
   group_by(STATION_NUMBER, Year) %>%
   count(is.na(Value)) %>%
@@ -118,9 +131,9 @@ mutate_if(is.numeric, ~replace(., is.na(.), 0))
 
 #Function to create tile plots 
 
-tileplot <- function(data, x, y, fill, z) {
+tileplot <- function(data, x, y, fill, z, m, n, o) {
   p <- data %>%
-    filter(Watershed == z) %>%
+    filter(Watershed == z | Watershed == m | Watershed == n | Watershed == o) %>%
     ggplot(aes({{x}}, {{y}},fill = {{fill}} )) +
   geom_tile( colour = "white", lwd = 0.5, linetype = 1) +
   theme_bw() +
@@ -129,8 +142,10 @@ tileplot <- function(data, x, y, fill, z) {
      theme(axis.text.y =  element_text( size = 7, face = 'bold')) +
     scale_x_discrete(breaks = seq(1912, 2022, 2)) +
     theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 7, face = 'bold')) +
-  theme(axis.text.y =  element_text(size = 6)) +
        # theme(legend.position = 'none') +
+    theme(legend.text = element_text(size = 6),
+          legend.key.height = unit(.5, 'cm'), #change legend key height
+        legend.key.width = unit(.5, 'cm'), legend.title = element_text(size=7)) +
     ylab('') +
   scale_fill_gradientn(colours = hcl.colors(5, palette = "Blues3", rev = TRUE) ) +
     labs(fill = "Number of Days \n in each year") 
@@ -143,26 +158,22 @@ tileplot <- function(data, x, y, fill, z) {
 ```
 
 
-##Tile Plots of flow data availability for each watershed: 
-"07A" "07B" "07C" "07D" "07E" "07F" "07G" "07H" "07J" "07K" "07L" "07M" "07N" "07P" "07Q"
+## Plots of flow data availability for each watershed:
 
-```{r, fig.height = 5.0}
+"07" refers to the main drainage basin (in this case, the Peace-Athabasca Delta), and then the letter after that represents a different watershed. There are 15 different watersheds here, one on each graph: "07A", "07B", "07C", "07D", "07E", "07F", "07G", "07H", "07J", "07K", "07L", "07M", "07N", "07P", "07Q"
 
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07A' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07B' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07C' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07D' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07E' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07F' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07G' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07H' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07J' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07K' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07L' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07M' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07N' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07P' )
-tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07Q' )
+```{r,echo = FALSE,  fig.height = 6.0, fig.width= 8}
+
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07A', '07A', '07A', '07A' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07B', '07B' ,'07B' ,'07B'  )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07C', '07C', '07C', '07C' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07D', '07D', '07D','07D' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07E', '07E','07E','07E' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07F', '07F' ,'07F' ,'07F' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07G', '07G','07G','07G' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07H', '07J', '07H', '07J')
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07K', '07L', '07K', '07L' )
+tileplot(ALL_FLOWS, Year, STATION_NUMBER, Number_values, '07M', '07N', '07P', '07Q' )
 
 ```
 
@@ -187,14 +198,20 @@ ALL_LEVELS <- tidyhydat::hy_daily_levels(station_number = c("07AA001", "07AA002"
 
 ```{r, echo = FALSE, include = FALSE}
 
-ALL_LEVELS_y <- ALL_LEVELS %>%
+ALL_LEVELS <- ALL_LEVELS %>%
 group_by(STATION_NUMBER) %>%
   #make a complete set of days for each year 
   complete(Date = seq.Date(as.Date("1912/1/1"), as.Date("2020/12/31"), by="day")) %>%
   #make a separate column for year
   mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y"))
 
-ALL_LEVELS <- ALL_LEVELS_y %>%
+
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+
+ALL_LEVELS <- ALL_LEVELS %>%
   group_by(STATION_NUMBER, Year) %>%
   count(is.na(Value)) %>%
   rename("Is_NA" = "is.na(Value)")  %>%
@@ -205,207 +222,49 @@ ALL_LEVELS <- ALL_LEVELS_y %>%
  mutate("Watershed" = str_extract(STATION_NUMBER, ".{2}(.)") ) %>%
 mutate_if(is.numeric, ~replace(., is.na(.), 0))
 
-
-length(unique(ALL_LEVELS$STATION_NUMBER))
+#length(unique(ALL_LEVELS$STATION_NUMBER))
 ```
 
 
 ```{r, echo = FALSE, include = FALSE}
 
-tileplot <- function(data, x, y, fill, z) {
+tileplot <- function(data, x, y, fill, z, m, n, o) {
   p <- data %>%
-    filter(Watershed == z) %>%
+    filter(Watershed == z | Watershed == m | Watershed == n | Watershed == o) %>%
     ggplot(aes({{x}}, {{y}},fill = {{fill}} )) +
   geom_tile( colour = "white", lwd = 0.5, linetype = 1) +
   theme_bw() +
     scale_y_discrete(limits=rev)+
  #scale_x_discrete(guide = guide_axis(n.dodge = 2)) + #dodge every 2
-     theme(axis.text.y =  element_text( size = 7, face = 'bold')) +
+    theme(axis.text.y =  element_text( size = 7, face = 'bold')) +
     scale_x_discrete(breaks = seq(1912, 2022, 2)) +
     theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 7, face = 'bold')) +
-  theme(axis.text.y =  element_text(size = 6)) +
        # theme(legend.position = 'none') +
+    theme(legend.text = element_text(size = 6),
+          legend.key.height = unit(.5, 'cm'), #change legend key height
+        legend.key.width = unit(.5, 'cm'), legend.title = element_text(size=7)) +
     ylab('') +
   scale_fill_gradientn(colours = hcl.colors(5, palette = "Purples", rev = TRUE) ) +
     labs(fill = "Number of Days \n in each year") 
     #labs(title = {{title}}) +
-    print(p)
-
-}
+    print(p)    }
 
 ```
 
-##Tile Plots of water level data availability for each watershed: 
-"07A" "07B" "07C" "07D" "07E" "07F" "07G" "07H" "07J" "07K" "07L" "07M" "07N" "07P" "07Q"
+## Plots of water level data availability for each watershed: 
+There are 15 different watersheds here, one on each graph: "07A", "07B", "07C", "07D", "07E", "07F", "07G", "07H", "07J", "07K", "07L", "07M", "07N", "07P", "07Q"
 
-```{r, fig.height = 5.0}
-
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07A' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07B' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07C' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07D' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07E' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07F' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07G' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07H' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07J' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07K' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07L' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07M' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07N' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07P' )
-tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07Q' )
-
+```{r,echo = FALSE, fig.height = 5.0, fig.width= 8}
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07A', '07A', '07A', '07A' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07B' , '07B','07B' ,'07B' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07C', '07C', '07C', '07C' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07D', '07D', '07D','07D' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07E', '07E','07E','07E'  )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07F', '07F' ,'07F' ,'07F' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07G', '07G','07G','07G' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07H', '07J', '07H', '07J' )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07K', '07L', '07K', '07L'  )
+tileplot(ALL_LEVELS, Year, STATION_NUMBER, Number_values, '07M', '07N', '07N', '07Q' )
 ```
 
 
-```{r}
-```
-
-
-```{r, echo = FALSE, include = FALSE}
-#keep this, it's useful if need to go back to using metadata to graph- ie just looking at year and not percentage of years
-#Create a new column with a year for every single year between the "year_from" and "year_to" columns. 
-
-Stations_metadata_FLOW <- Stations_metadata_onelist %>%
-  dplyr::select(-c(MEASUREMENT)) %>%
- dplyr::filter(DATA_TYPE == "Flow" ) %>%
-tidyr::unite("Unique_Id", c("STATION_NUMBER", "OPERATION", "DATA_TYPE" ), sep = "_", remove = FALSE ) %>%
-dplyr::mutate(Year_from = as.integer(Year_from), Year_to = as.integer(Year_to)) %>%
-dplyr::mutate(year = map2(Year_from, Year_to, ~seq(.x, .y), .id = "year")) %>%
- tidyr::unnest(cols = c(year))
-
-length(unique(Stations_metadata_YEAR$STATION_NUMBER))
-
-rm(Stations_metadata_YEAR, Stations_metadata_onelist)
-
-```
-
-
-
-```{r, echo = FALSE, include=FALSE}
-#from here down likely don't need, but keep for now. 
-
-#Calculate the amount of days with values in each year, for each station 
-
-#this does it all by hand, takes more lines of code
-test_flows_daily_year <- test_flows_daily_year %>%
-  group_by(STATION_NUMBER, Year) %>%
-  mutate(Number_Nas = sum(is.na(Value))) %>%
-  mutate(Number_values = 366 - Number_Nas )
-  
-mutate(new_col = sum(is.na(test_flows_daily_year$Value) ) )
-
-  filter_at(-1, any_vars(!is.na(.))) %>% nrow
-  
-```
-
-```{r, echo = FALSE, include=FALSE}
-
-#Make a date df with one full year of month-day date, including leap years
-
-#maybe don't need this but keep just in case
-df_dates <- as.data.frame(seq(as.Date("1916/1/1"), as.Date("1916/12/31"), "day") ) %>% #with leap year 
-setNames("Date") %>%
-separate( "Date", c("Year", "Month", "Day"), sep = "-", remove = TRUE) %>%
-    unite("month_day", c("Month", "Day"), sep = "-", remove = TRUE) %>%
-  select(-c("Year") )
-
-
-```
-
-```{r, echo = FALSE, include=FALSE}
-#Separate date into a new column of month-day
-
-#maybe don't need this but keep just in case
-test_flows_daily_test <- test_flows_daily %>%
-  separate( "Date", c("Year", "Month", "Day"), sep = "-", remove = TRUE) %>%
-  unite("month_day", c("Month", "Day"), sep = "-", remove = TRUE)
-
-```
-
-
-```{r, echo = FALSE, include=FALSE}
-
-Instead try to expand for all dates... 
-
-test_flows_daily_year <-test_flows_daily %>%
-  mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y"))
-#for each unique year, station number, then do the complete thing. 
-
-complete(test_flows_daily, Date = full_seq(Date, 1))
-
-df <- complete(test_flows_daily_year, Date = (seq(as.Date("1916/1/1"), as.Date("1916/12/31"), "day") ) %>% #with leap year 
-
-#this works, nothing else does...
-test_flows_daily_complete <- complete(test_flows_daily, Date = seq.Date(as.Date("1912/1/1"), as.Date("2020/12/31"), by="day"))
-
-
-test_flows_daily_complete <- test_flows_daily %>%
-complete(test_flows_daily_year, Date = seq.as.Date(min(Date), max(Date), by="day")
-
-complete(test_flows_daily_year, Date = full_seq(Date, 1) ) 
-
-complete(Date = seq.Date(<start_date>, <end_date>, by=<date_unit>))
-
-```
-
-
-```{r, echo = FALSE, include=FALSE}
-
-test_flows_daily_year$Date <- as.Date(test_flows_daily_year$Date, format = "%d-%m-%Y" )
-
-test_flows_daily_year_expand <- test_flows_daily_year %>%
- mutate(daysinyear = map2(Year, Date, ~seq(as.Date(paste0(.x, "-01-01")),
-                                           as.Date(paste0(.x, "-12-31")),
-                                           by = "day"))) %>%
-  unnest(daysinyear)
-
-
-test_flows_daily_year_expand %>%
-  select(STATION_NUMBER, Date, Year, daysinyear)
-
-```
-
-
-```{r, echo = FALSE, include=FALSE}
-
-library(tidyverse)
-
-test_flows_daily_test <- test_flows_daily %>%
-    #mutate(Date = as.Date(Date) ) %>%
-  #mutate(Date =  ymd(Date))%>%
-  group_by(STATION_NUMBER) %>% 
-  tidyr::complete(Date) %>% 
-  ungroup()
-
-test_flows_daily_test <- test_flows_daily %>%
-complete( STATION_NUMBER, Date)
-
-```
-
-
-```{r, echo = FALSE, include=FALSE}
-
-
-#this sort of works... 
-df_dates <- test_flows_daily %>%
-  group_by(STATION_NUMBER, year = year(Date)) %>%
-  #summarise(start_date = min(Date), end_date = max(Date)) %>%
-  summarise(start_date = as.Date(paste0(year(Date), "-01-01")),
-            end_date = as.Date(paste0(year(Date), "-12-31")) %>%
-  ungroup() %>%
-  mutate(full_date = map2(start_date, end_date, function(x, y) seq(x, y, by = "day"))) %>%
-  unnest(full_date) %>%
-  mutate(Date = full_date) %>%
-  as.data.frame()
-
-df_f <- left_join(df_dates, test_flows_daily, by = c("STATION_NUMBER", "Date" ))
-#df_final$Value[is.na(df_final$Value)] <- 0
-
-
-df_final <- df_final %>%
-  filter(STATION_NUMBER == "07AA001")
-
-
-```
