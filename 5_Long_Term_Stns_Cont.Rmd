@@ -129,6 +129,7 @@ IHA <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 View(IHA)
 
 #write.csv(IHA, "IHAlongterm.csv")
+
 ```
 
 
@@ -235,7 +236,7 @@ View(df_ICE_final)
 #write.csv(df_ICE_final, "ICE.csv")
 ```
 
-#Mann-Kendall Trend Analysis 
+#Mann-Kendall Trend Analysis - Ice Variables
 
 ```{r}
 
@@ -254,14 +255,82 @@ thawdoy <- calc_MK(df_ICE_final, parameter = Thaw_DOY, start = 1956)%>%
 result <- cbind(DY, Icecover, frdoy, thawdoy)
 MK_result_final <- result[!duplicated(as.list(result))] #removed duplicated columns
 
-View(MK_result_final)
-write.csv(MK_result_final, "MKres.csv")
+MK_result_final_Ice <- MK_result_final %>% mutate_if(is.numeric, ~round(., 3)) #round 
+
+View(MK_result_final_Ice)
+#write.csv(MK_result_final_Ice, "MKres.csv")
 
 STOP
 ```
 
-#Mann-Kendall Trend Analysis - working and testing ARIMA model
-(can ignore and use code above)
+#Mann-Kendall Trend Analysis - IHA Variables 
+
+```{r}
+#Expand IHA df to have all years for all stations so they can be used in the MK function
+
+for (i in unique(IHA$STATION_NUMBER)) {
+  minyr <- min(IHA$Year)
+  maxyr <- max(IHA$Year)
+  IHA_post_expand <- IHA %>%
+    mutate(Year = as.integer(Year)) %>%
+    complete(STATION_NUMBER, Year = minyr:maxyr)
+  return(IHA_post_expand)
+}
+
+IHA_post_expand <- IHA_post_expand %>%
+rename("One_Day_Max" = "1 Day Max",
+           "One_Day_Min" = '1 Day Min',
+           "Three_Day_Max" = "3 Day Max",
+           "Three_Day_Min" = "3 Day Min",
+           "Seven_Day_Min" ="7 Day Min",
+          "Seven_Day_Max" = "7 Day Max",
+          "Thirty_Day_Max" = "30 Day Max",
+          "Thirty_Day_Min" = "30 Day Min",
+          "Ninety_Day_Max" = "90 Day Max",
+          "Ninety_Day_Min" = "90 Day Min",
+          "High_pulse_number" = "High pulse number",
+          "Low_pulse_number" = "Low pulse number",
+          "High_pulse_length" = "High pulse length",
+          "Low_pulse_length" = "Low pulse length")
+```
+
+
+```{r}
+#Use calc_Mk to do a MK for all Stations for selected variables
+
+Reversals <- calc_MK(IHA_post_expand, parameter = Reversals, start = 1956) %>%
+  rename("Result_Reversals" = 'P_Value')
+
+One_Day_Min <- calc_MK(IHA_post_expand, parameter = One_Day_Min , start = 1956) %>% rename("Result_One_Day_Min" = 'P_Value')
+
+One_Day_Max <-  calc_MK(IHA_post_expand, parameter = One_Day_Max , start = 1956) %>% rename("Result_1_Day_Max" = 'P_Value')
+
+Seven_Day_Min <- calc_MK(IHA_post_expand, parameter = Seven_Day_Min , start = 1956) %>% rename("Result_7_Day_Min" = 'P_Value')
+
+Seven_Day_Max <-  calc_MK(IHA_post_expand, parameter = Seven_Day_Max , start = 1956) %>% rename("Result_7_Day_Max" = 'P_Value')
+
+Thirty_Day_Min <- calc_MK(IHA_post_expand, parameter = Thirty_Day_Min , start = 1956) %>% rename("Result_30_Day_Min" = 'P_Value')
+
+Thirty_Day_Max <-  calc_MK(IHA_post_expand, parameter = Thirty_Day_Max , start = 1956) %>% rename("Result_30_Day_Max" = 'P_Value')
+
+High_pulse_number <-  calc_MK(IHA_post_expand, parameter = High_pulse_number , start = 1956) %>% rename("Result_High_pulse_number" = 'P_Value')
+
+Low_pulse_number <-  calc_MK(IHA_post_expand, parameter = Low_pulse_number , start = 1956) %>% rename("Result_Low_pulse_number" = 'P_Value')
+
+High_pulse_length <-  calc_MK(IHA_post_expand, parameter = High_pulse_length , start = 1956) %>% rename("Result_High_pulse_length" = 'P_Value')
+
+Low_pulse_length <-  calc_MK(IHA_post_expand, parameter = Low_pulse_length , start = 1956) %>% rename("Result_Low_pulse_length" = 'P_Value')
+
+result_MK_IHA <- cbind(Reversals, One_Day_Min, One_Day_Max, Seven_Day_Min, Seven_Day_Max, Thirty_Day_Min, Thirty_Day_Max, High_pulse_number, Low_pulse_number, High_pulse_length, Low_pulse_length )
+
+View(result_MK_IHA)
+
+#write.csv(result_MK_IHA, "IHAresult5.csv")
+
+```
+
+#MK/ARIMA Trend Analysis - working and testing ARIMA model
+( ignore and use code above)
 
 ```{r}
 stn_07BE001 <- stn_07BE001 %>%
