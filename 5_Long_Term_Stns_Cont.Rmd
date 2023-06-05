@@ -25,7 +25,7 @@ library(outliers)
 
 
 ```{r}
-#get stns for this analysis
+#get stns to analyze
 stn_all <- hy_daily_flows(station_number = c("07BE001", "07BC002", "07CD001", "07DA001", "07GH002", "07GJ001", "07HA001", "07NB001", '07AF002')) 
 
 stn_all <- stn_all %>%
@@ -46,7 +46,7 @@ rm(stn_all_split, stn_all_split_doy)
 ```
 
 
-# Tidy Stations
+# Tidy Data for IHA calcs
 ```{r}
 
 stn_cln <- stn_all %>%
@@ -54,63 +54,19 @@ stn_cln <- stn_all %>%
   filter(waterYear > 1955) %>%
   filter(waterYear != 2022)
 
-#print out rows with > 14 Nas in a row
+#delete years that have >14 days missing data using calc_rle function from open-source functions for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
 lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
 
-for (i in lst_stns_cln_rle) {
-  for (j in i)
-    stn <- unique(i$STATION_NUMBER)
-    wy <- unique(i$waterYear)
-    print("delete the following station # and water year:")
-    print(stn)
-    print(wy)
-}
+#unlist by the station numbers
+stns_ready <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
 
-
-#delete the rows with >14 NAs, printed from above, and fill any values that are missing with preceding values 
-stn_cln <- stn_all %>%
-    filter(waterYear > 1955) %>%
-  filter(waterYear != 2022) %>%
-  mutate(Date = as.Date(Date)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1959)) %>%        
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07GJ001" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1964)) %>%
-  filter(!c(STATION_NUMBER == "07AF002" & waterYear == 2017)) %>%
-  filter(!c(STATION_NUMBER == "07AF002" & waterYear == 2018)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1960)) %>%  
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1961)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07CD001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07CD001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07CD001" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1964)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1970)) %>%
+#change date format and fill any values that are missing with preceding values 
+stns_daymonthyear <- stns_ready %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
 
 ```
 
@@ -118,7 +74,7 @@ stn_cln <- stn_all %>%
 ```{r}
 
 #make a list of dfs- split by station number
-lst_stns <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER )
 
 #apply calc_IHA function to all dfs in the list
 lst_stns_IHA <- lapply(lst_stns, calc_IHA)
@@ -131,61 +87,22 @@ View(IHA)
 #write.csv(IHA, "IHAlongterm.csv")
 
 ```
-
+#Prep data for ice variables
 
 ```{r}
-
-#Date must be in yyyy-mm-dd format for ice variables- so re-run tidying code for pre and post dfs without the line that mutates to dd-mm-yyyy format. 
-#don't forget to keep the symbol column
-stn_cln <- stn_all %>%
-  filter(waterYear > 1955) %>%
-  filter(waterYear != 2022) %>%
+#data prep for ice variables
+#change the date format, and fill any values that are missing with preceding values 
+stns_yearmonthday <- stns_ready %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1959)) %>%        
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07GJ001" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07GH002" & waterYear == 1964)) %>%
-  filter(!c(STATION_NUMBER == "07AF002" & waterYear == 2017)) %>%
-  filter(!c(STATION_NUMBER == "07AF002" & waterYear == 2018)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1960)) %>%  
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 1961)) %>%
-  filter(!c(STATION_NUMBER == "07BC002" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07CD001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07CD001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07CD001" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1964)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1970)) %>%
-  #mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
-  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+  fill(Value, .direction = 'downup')
 
 ```
 
-#ICE Variables - pre
+#ICE Variables 
 ```{r}
 #make a list of dfs- split by station number
-lst_stns <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns <- split(stns_yearmonthday, stns_yearmonthday$STATION_NUMBER )
 
 #apply ice variable function to all dfs in the list
 stn_g1 <- lapply(lst_stns, Group_1_ice_cover)

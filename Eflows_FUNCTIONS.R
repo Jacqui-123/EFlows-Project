@@ -30,12 +30,16 @@ library(dataRetrieval)
   
 #RLE FUNCTION
   
+
   calc_rle <- function(df) {
-    #function to return a df with rows with > 14 consec NA values 
+    #function to remove years that have > 14 consecutive NA values (ie 14 days in a row with no data) 
+    #and return the original df, without the offending years
     na_rows <- with(rle(is.na({{df}}$Value)), rep(values & lengths > 14, lengths))
-    rtn <- {{df}}[na_rows,]
-    return(rtn)
+    yearstoremove <- unique({{df}}$waterYear[na_rows])
+    output <- {{df}}[!{{df}}$waterYear %in% yearstoremove, ]
+    return(output)
   }
+  
   
 #DAY OF THE WATER YEAR FUNCTION
   #Date should be in yyyy-mm-dd
