@@ -128,7 +128,6 @@ stns_yearmonthday_pre <- stns_ready_pre %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
-
 stns_yearmonthday_post <- stns_ready_post %>%
   mutate(Date = as.Date(Date)) %>%
   group_by(STATION_NUMBER) %>%
@@ -137,7 +136,7 @@ stns_yearmonthday_post <- stns_ready_post %>%
 ```
 
 
-#ICE Variables - pre
+#Calculate Ice Variables - pre
 ```{r}
 #make a list of dfs- split by station number
 stn_pre_split <- split(stns_yearmonthday_pre, stns_yearmonthday_pre$STATION_NUMBER )
@@ -267,7 +266,7 @@ IHA_pst <- IHA_post %>%
 
 ```
 
-Calculate percent change
+#Calculate percent change, IHA
 ```{r}
 
 df_lst <- list()
@@ -321,7 +320,7 @@ ICE_pst <- ICE_post %>%
 
 ```
 
-Calculate percent change
+#Calculate percent change, Ice variables
 ```{r}
 df_lst <- list()
 

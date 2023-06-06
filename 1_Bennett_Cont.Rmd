@@ -42,53 +42,34 @@ rm(stn_all_split, stn_all_split_doy)
 ```
 
 
-# Pre dam stns 1947-1967
+# Data tidying - Pre dam stns 1947-1967
 ```{r}
 
 stn_pre <- stn_all %>%
   mutate(Date = as.Date(Date)) %>%
   filter(Date >= "1956-10-01" & Date < "1967-10-01") 
 
-#print out rows with > 14 Nas in a row
-lst_stns_pre <- split(stn_pre, stn_pre$STATION_NUMBER )
-lst_stns_pre_rle <- lapply(lst_stns_pre, calc_rle)
+#delete years that have >14 days missing data using calc_rle function from open-source functions for this project
+lst_stns_cln <- split(stn_pre, stn_pre$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
 
-for (i in lst_stns_pre_rle) {
-  for (j in i)
-    stn <- unique(i$STATION_NUMBER)
-    wy <- unique(i$waterYear)
-    print("delete the following station # and water year:")
-    print(stn)
-    print(wy)
-}
+#unlist by the station numbers
+stns_ready_pre <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
 
-
-#delete the rows with >14 NAs, printed from above, and fill any values that are missing with preceding values 
-stn_pre <- stn_all %>%
-  mutate(Date = as.Date(Date)) %>%
-  filter(Date >= "1956-10-01" & Date < "1967-10-01") %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1964)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1959)) %>%
+#change date format and fill any values that are missing with preceding values 
+stns_daymonthyear_pre <- stns_ready_pre %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
+
 ```
 
-# Pre dam stns IHA
+# IHA calculations - Pre dam stns
 ```{r}
 
 #make a list of dfs- split by station number
-lst_stns_pre <- split(stn_pre, stn_pre$STATION_NUMBER )
+lst_stns_pre <- split(stns_daymonthyear_pre, stns_daymonthyear_pre$STATION_NUMBER )
 
 #apply calc_IHA function to all dfs in the list
 lst_stns_pre_IHA <- lapply(lst_stns_pre, calc_IHA)
@@ -98,62 +79,36 @@ lst_stns_pre_IHA <- lapply(lst_stns_pre, calc_IHA)
 IHA_pre <- bind_rows(lst_stns_pre_IHA, .id = "STATION_NUMBER")
 View(IHA_pre)
 
-
 ```
 
 
-# Post dam stns 1972-2023
+# Tidying - Post dam stns 1972-2023
 ```{r}
 stn_post <- stn_all %>%
 mutate(Date = as.Date(Date)) %>%
 group_by(STATION_NUMBER) %>%
-filter(Date >= "1972-10-01" & Date < "2022-10-01") %>%
-  select(-c(Symbol))
+filter(Date >= "1972-10-01" & Date < "2022-10-01") 
 
+#delete years that have >14 days missing data using calc_rle function from open-source functions for this project
+lst_stns_cln <- split(stn_post, stn_post$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
 
-#print out rows with >14 Nas in a row, and then manually delete that year
-lst_stns_post<- split(stn_post, stn_post$STATION_NUMBER )
-lst_stns_post_rle <- lapply(lst_stns_post, calc_rle)
+#unlist by the station numbers
+stns_ready_post <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
 
-for (i in lst_stns_post_rle) {
-  for (j in i)
-    stn <- unique(i$STATION_NUMBER)
-    wy <- unique(i$waterYear)
-    print("delete the following station # and water year:")
-    print(stn)
-    print(wy)
-}
-
-
-#delete the printed values from above and fill any values that are missing with preceding values 
-
-stn_post <- stn_all %>%
-  mutate(Date = as.Date(Date)) %>%
-  filter(Date >= "1972-10-01" & Date < "2022-10-01") %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 2022)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2022)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2008)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2009)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2013)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2022)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2022)) %>%
-  select(-c(Symbol)) %>%
+#change date format and fill any values that are missing with preceding values 
+stns_daymonthyear_post <- stns_ready_post %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
 ```
 
-# Post dam stns IHA
+# Calculate IHA - Post dam stns
 
 ```{r}
 #make a list of dfs- split by station number
-lst_stns_post <- split(stn_post, stn_post$STATION_NUMBER )
+lst_stns_post <- split(stns_daymonthyear_post, stns_daymonthyear_post$STATION_NUMBER )
 
 #apply calc_IHA function to all dfs in the list
 lst_stns_post_IHA <- lapply(lst_stns_post, calc_IHA)
@@ -166,56 +121,27 @@ View(IHA_post)
 
 ```
 
-
+#Tidying - prep for ice variables, pre and post
 ```{r}
 
 #Date must be in yyyy-mm-dd format for ice variables- so re-run tidying code for pre and post dfs without the line that mutates to dd-mm-yyyy format. 
-#don't forget to keep the symbol column
 
-stn_pre <- stn_all %>%
+stns_yearmonthday_pre <- stns_ready_pre %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(Date >= "1956-10-01" & Date < "1967-10-01") %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1959)) %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 1964)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1956)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1957)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1958)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 1959)) %>%
-  #mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
-
-stn_post <- stn_all %>%
+stns_yearmonthday_post <- stns_ready_post %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(Date >= "1972-10-01" & Date < "2022-10-01") %>%
-  filter(!c(STATION_NUMBER == "07DA001" & waterYear == 2022)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07HA001" & waterYear == 2022)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2008)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2009)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2013)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2021)) %>%
-  filter(!c(STATION_NUMBER == "07KC001" & waterYear == 2022)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2013)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2014)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2020)) %>%
-  filter(!c(STATION_NUMBER == "07NB001" & waterYear == 2022)) %>%
-  #mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
 ```
 
-#ICE Variables - pre
+# Calculate Ice Variables - pre
 ```{r}
 #make a list of dfs- split by station number
-stn_pre_split <- split(stn_pre, stn_pre$STATION_NUMBER )
+stn_pre_split <- split(stns_yearmonthday_pre, stns_yearmonthday_pre$STATION_NUMBER )
 
 #apply ice variable function to all dfs in the list
 stn_pre_g1 <- lapply(stn_pre_split, Group_1_ice_cover)
@@ -263,14 +189,15 @@ df_ICE_pre <- cbind(output1_ex, output2_ex, output3_ex)
 df_ICE_pre_final <- df_ICE_pre[!duplicated(as.list(df_ICE_pre))] #removed duplicated columns
 
 View(df_ICE_pre_final)
+#write.csv(df_ICE_pre_final, "ice1.csv")
 
 ```
 
-#ICE Variables - post
+#Calculate Ice Variables - post
 
 ```{r}
 #make a list of dfs- split by station number
-stn_post_split <- split(stn_post, stn_post$STATION_NUMBER )
+stn_post_split <- split(stns_yearmonthday_post, stns_yearmonthday_post$STATION_NUMBER )
 
 #apply ice variable function to all dfs in the list
 stn_post_g1 <- lapply(stn_post_split, Group_1_ice_cover)
@@ -318,6 +245,8 @@ df_ICE_post_final <- df_ICE_post[!duplicated(as.list(df_ICE_post))] #removed dup
 
 View(df_ICE_post_final)
 
+#write.csv(df_ICE_post_final, "df_ICE_post_final.csv")
+
 ```
 
 #Percent change, IHA Variables 
@@ -340,7 +269,7 @@ IHA_pst <- IHA_post %>%
 
 ```
 
-Calculate percent change
+#Calculate percent change, IHA
 ```{r}
 
 df_lst <- list()

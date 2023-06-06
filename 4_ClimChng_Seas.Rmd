@@ -60,10 +60,9 @@ stns_daymonthyear_pre <- stns_ready %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
-
 ```
 
-# Pre climate change stns IHA
+# IHA calculations - Pre climate change stns 
 ```{r}
 
 #make a list of dfs- split by station number
@@ -80,7 +79,7 @@ View(IHA_pre)
 ```
 
 
-# Post climate change stns 2006-2023
+# Tidy data - Post climate change stns 2006-2023
 ```{r}
 
 stn_post <- stn_all %>%
@@ -121,7 +120,7 @@ View(IHA_post)
 
 ```
 
-#Percent change, IHA Variables 
+#Data prep - Percent change, IHA Variables 
 ```{r}
 #data prep, IHA-pre
 #calc the medians value for each stn number for the IHA-pre df
@@ -141,7 +140,7 @@ IHA_pst <- IHA_post %>%
 
 ```
 
-Calculate percent change
+#Calculate percent change, IHA Variables
 ```{r}
 
 df_lst <- list()
