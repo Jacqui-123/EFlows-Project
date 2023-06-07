@@ -110,7 +110,7 @@ filter(Station_Number == "07HA001")
 #Group 1 Function: Ice coverage  
 
 Group_1_ice_cover <- function(data) {
-#function returns a df for the length of ice coverage, per calendar year
+#function returns a df for the length of ice coverage, per water year
 #works with one station, multiple years
 #for multiple stations, split-apply-combine station
   lst <- list()
@@ -140,7 +140,7 @@ Group_1_ice_cover <- function(data) {
 #Group 2 Function: Freeze and Thaw Dates
 
 Group_2_freeze_thaw <- function(data) {
-  #This function calculates the freeze and thaw dates and their flow values, using the     longest consecutive run of "B" Symbols in the df
+  #This function calculates the freeze and thaw dates and their flow values, using the longest consecutive run of "B" Symbols in the df
 
   start_date_lst <- list()
   end_date_lst <- list()
@@ -203,7 +203,7 @@ Group_2_freeze_thaw <- function(data) {
 }
 
 #test
-#Fr_thaw_stn_07BE001 <- Group_2_freeze_thaw(stn_07BE001)
+tst <- Group_2_freeze_thaw(test)
 #edit function so that it takes water year and calendar year arguments
 #edit function for error checking
 
@@ -254,7 +254,7 @@ Group_3_freshet <- function(data) {
           #append date, flow value to a list using the index numbers
           dt <- df_subset$Date[f_index]
           fl <- df_subset$Value[f_index]
-          st <- df_subset$Station_Number[f_index]
+          st <- df_subset$STATION_NUMBER[f_index]
           doy <- df_subset$day_of_year[f_index]
          # print(dt) 
         #  print(fl)

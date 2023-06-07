@@ -17,45 +17,11 @@ library(grid)
 library(gridExtra)
 library(viridis)
 library(sqldf)
+library(timetk)
+
 #install.packages("IHA", repos="http://R-Forge.R-project.org", dependencies = TRUE)
-
 ```
 
-
-```{r, echo = FALSE}
-#IHA FUNCTION
-calc_IHA <- function(data){
-  
-flow_data <-  {{data}} #%>%
-#  select(Date, Value)
-  
-flow_data <- zoo(flow_data$Value, order.by = as.Date(as.character(flow_data$Date), format = "%d-%m-%Y"))
-## Run IHA analyses
-group1_output <- group1(flow_data, year = "calendar", FUN = median)
-group2_output <- group2(flow_data, year = "calendar", mimic.tnc = TRUE)
-group3_output <- group3(flow_data, year = "calendar", mimic.tnc = FALSE)
-#group4_output <- group4(flow_data, year = "calendar")
-group5_output <- group5(flow_data, year = "calendar")
-
-## Convert outputs
-group1_output <- as.data.frame(group1_output)
-group2_output <- group2_output[,-1]
-group3_output <- as.data.frame(group3_output)
-#group4_output <- as.data.frame(group4_output)
-group5_output <- as.data.frame(group5_output)
-
-## Create output dataframe 
-#Need to figure out how to join all 4 dfs even if they are diff sizes - use reduce? 
-#group4 data left out for now (low/high pulse numbers)
-
-IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group5_output)) #group4_output
-
-#make the years the column names instead of the rownames
-IHA_output <- tibble::rownames_to_column(IHA_output, "Year") 
-
-}
-
-```
 
 ```{r, echo = FALSE, include = FALSE}
 #Station metadata with lat/longs:
@@ -265,10 +231,12 @@ IHA_pst <- bind_rows(lst_stns_pst_IHA, .id = "Station_Number") %>%
 ## Calculate Percent Change 
 
 ```{r}
+
 #expand so that all years from 2006-2020 are present for all stations
 IHA_pst <- IHA_pst %>%
   mutate(Year = as.integer(Year)) %>%
-    complete(Station_Number, Year = 2006:2020) 
+    complete(Station_Number, Year = 2006:2020)
+
 ```
 
 Make a df for the medians for the 1975-2005 period 
@@ -286,7 +254,7 @@ IHA_medians_pre <- IHA_pre %>%
 Function to calculate the percent change for each station
 ```{r}
 
-calc_perc_change <- function(data_pre, data_pst, stn){
+calc_percent_change <- function(data_pre, data_pst, stn){
 
 years_post <- {{data_pst}}$Year
 
@@ -371,13 +339,9 @@ IHA_pre <- IHA_pre  %>%
           "Ninety_Day_Max" = "90 Day Max",
           "Ninety_Day_Min" = "90 Day Min")
 
-
-
 IHA_both <- dplyr::bind_rows(IHA_pre, IHA_pst) %>%
   select(-Watershed) %>%
  mutate("Watershed" = str_extract(Station_Number, ".{2}(.)") )
-
-
 
 ```
 
@@ -396,7 +360,6 @@ ggtitle({{title}}) +
   theme(plot.title = element_text(hjust = 0.5) ) +
 scale_colour_viridis(discrete = TRUE)
 }
-
 
 #ggplot(df, aes(x = factor(Year), y= Reversals, group = Station_Number, colour = Station_Number)) +
  # geom_line() +
@@ -425,7 +388,6 @@ scale_colour_viridis(discrete = TRUE) +
 }
 
 ```
-
 
 # Graphs
 
