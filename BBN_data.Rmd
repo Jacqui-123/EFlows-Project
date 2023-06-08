@@ -1,6 +1,9 @@
 
-Bayesian Belief Network Hydrological Datasets
+Bayesian Belief Network: Hydrological Datasets
 
+Flow and water level data as well as IHA variables and ice cycle variables. 
+
+Run "Eflows_FUNCTIONS.R" file before running this script
 
 ```{r}
 
@@ -15,17 +18,9 @@ library(knitr)
 
 ```
 
-
-```{r}
- 
-tidyhydat::hy_stn_data_coll(station_number = "07KE001") %>% filter(DATA_TYPE == "Flow")
-
-tidyhydat::hy_stations(station_number = " ")
-
-```
-
 ##FLOW DATA
-#1 get flow data, add column for water year and day of the year
+
+#1 extract flow data and add column for water year and day of the year
 
 ```{r}
 #get stns to analyze
@@ -49,8 +44,8 @@ rm(stn_all_split, stn_all_split_doy)
 
 ```
 
-
 #2 export csvs for flow data
+Note: these csvs are untidied flow data. No estimates, no deleting years with >14 days of missing data, etc. See below for tidied data
 
 ```{r}
 
@@ -59,38 +54,100 @@ df2 <- stn_all %>% filter(STATION_NUMBER == "07NB001 ")
 df3 <- stn_all %>% filter(STATION_NUMBER == "07KE001 ")
 df4 <- stn_all %>% filter(STATION_NUMBER == "07DA001 ")
 
-#write.csv(df1, "PeaceRiver_Flow.csv")
-#write.csv(df2, "SlaveRiver_Flow.csv")
-#write.csv(df3, "BirchRiver_Flow.csv")
-#write.csv(df4, "AthabascaRiver_Flow.csv")
+write.csv(df1, "PeaceRiver_07KC001_Flow.csv")
+write.csv(df2, "SlaveRiver_07NB001_Flow.csv")
+write.csv(df3, "BirchRiver_07KE001_Flow.csv")
+write.csv(df4, "AthabascaRiver_07DA001_Flow.csv")
 
 ```
 
-#3 Get rid of years that have more than 14 consecutive days of missing data, and fill in missing values
+#3 Make three separate datasets in prep for IHA calculations: 
+-full year
+-open water data (April-October) 
+-winter/closed water (November-March)
 
 ```{r}
+stn_all <- stn_all # full dataset
 
+#open water data (change numbers in filter argument to select diff months)
+stn_openwater <- stn_all %>% 
+filter(month(Date) %in% c(4,5,6,7,8,9,10))  
+
+#closed water data (change numbers in filter argument to select diff months)
+stn_closed <- stn_all %>%
+  filter(month(Date) %in% c(11,12,1,2,3))
+
+```
+
+#4 Prep for IHA calculations: Get rid of years that have more than 14 consecutive days of missing data, and fill in missing values
+-full dataset
+```{r}
+
+#data prep for full dataset
 stn_cln <- stn_all %>%
   mutate(Date = as.Date(Date)) %>%
   filter(waterYear > 1960) %>%
   filter(waterYear != 2022)
 
-#delete years that have >14 days missing data using calc_rle function from open-source functions for this project
+#delete years that have >14 days missing data using calc_rle function from functions for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
 lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
 
 #unlist the station numbers
-stns_ready <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
+stns_ready_full <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
+
+#change date format and fill any values that are missing with preceding values 
+stns_dmy<- stns_ready_full %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
 ```
 
-#4 Data prep for IHA calculations
+-open water data
 
 ```{r}
 
+#data prep for open water data
+stn_cln <- stn_openwater %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(waterYear > 1960) %>%
+  filter(waterYear != 2022)
+
+#delete years that have >14 days missing data using calc_rle function from functions for this project
+lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
+
+#unlist the station numbers
+stns_ready_openwater <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
 
 #change date format and fill any values that are missing with preceding values 
-stns_daymonthyear <- stns_ready %>%
+stns_dmy_openwater <- stns_ready_openwater %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+```
+
+-Winter/closed water data
+
+```{r}
+
+#data prep for winter/closed water
+stn_cln <- stn_openwater %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(waterYear > 1960) %>%
+  filter(waterYear != 2022)
+
+#delete years that have >14 days missing data using calc_rle function from functions for this project
+lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
+
+#unlist the station numbers
+stns_ready_closed <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
+
+#change date format and fill any values that are missing with preceding values 
+stns_dmy_closedwater <- stns_ready_closed %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
@@ -98,69 +155,94 @@ stns_daymonthyear <- stns_ready %>%
 ```
 
 #5 IHA calculations
+-full year
+-open water
+-closed water
 
 ```{r}
 
+#IHA calculations: -full year
 #make a list of dfs- split by station number
-lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER )
+lst_stns <- split(stns_dmy, stns_dmy$STATION_NUMBER )
 
 #apply calc_IHA function to all dfs in the list
 lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 
 #Combine all IHA outputs into one df (unnlist the dfs)
 #make a "watershed" column for graphing later
-IHA <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
-View(IHA)
+IHA_fullyr <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 
-STOP
-```
+###########################
 
-#5 export IHA calcs- by stn number
-```{r}
+#IHA calculations: -open water
+#make a list of dfs- split by station number
+lst_stns <- split(stns_dmy_openwater, stns_dmy_openwater$STATION_NUMBER )
 
-IHA <- IHA %>%
-  rename("One_Day_Max" = "1 Day Max",
-           "One_Day_Min" = '1 Day Min',
-           "Three_Day_Max" = "3 Day Max",
-           "Three_Day_Min" = "3 Day Min",
-           "Seven_Day_Min" ="7 Day Min",
-          "Seven_Day_Max" = "7 Day Max",
-          "Thirty_Day_Max" = "30 Day Max",
-          "Thirty_Day_Min" = "30 Day Min",
-          "Ninety_Day_Max" = "90 Day Max",
-          "Ninety_Day_Min" = "90 Day Min",
-          "High_pulse_number" = "High pulse number",
-          "Low_pulse_number" = "Low pulse number",
-          "High_pulse_length" = "High pulse length",
-          "Low_pulse_length" = "Low pulse length")
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 
--IHA: open water 30 day median
--IHA: open water 1 day max 
--IHA: duration of high pulses
--IHA: duration of low pulses
--IHA: Reversals
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_openwater <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 
-IHA_selectvariables <- IHA %>%
-  #select columns here
+###########################
 
+#IHA calculations: -closed water
+#make a list of dfs- split by station number
+lst_stns <- split(stns_dmy_closedwater, stns_dmy_closedwater$STATION_NUMBER )
 
-df1 <- IHA_selectvariables %>% filter(STATION_NUMBER == "07KC001") 
-df2 <- IHA_selectvariables %>% filter(STATION_NUMBER == "07NB001 ")
-df3 <- IHA_selectvariables %>% filter(STATION_NUMBER == "07KE001 ")
-df4 <- IHA_selectvariables %>% filter(STATION_NUMBER == "07DA001 ")
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 
-write.csv(df1, "PeaceRiver_IHA.csv")
-write.csv(df2, "SlaveRiver_IHA.csv")
-write.csv(df3, "BirchRiver_IHA.csv")
-write.csv(df4, "AthabascaRiver_IHA.csv")
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_closedwater <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 
 ```
 
-#6 Calculate Ice variables
+#6 Export IHA variables to csv with a separate csv by station number
+
 ```{r}
-#data prep for ice variables
+#select variables for each dataset
+
+IHA_fullyr_s <- IHA_fullyr %>% 
+  select("STATION_NUMBER", "Year", "1 Day Max", "30 Day Min", "30 Day Max", "Low pulse length", "High pulse length", "Reversals")
+
+IHA_openwater_s <- IHA_openwater  %>% 
+  select("STATION_NUMBER", "Year", "1 Day Max", "30 Day Min", "30 Day Max", "Low pulse length", "High pulse length", "Reversals")
+
+IHA_closedwater_s <- IHA_closedwater  %>%
+select("STATION_NUMBER", "Year", "1 Day Max", "30 Day Min", "30 Day Max", "Low pulse length", "High pulse length", "Reversals")
+
+
+#write a csv for each station number- full year, IHA
+for (i in unique(IHA_fullyr_s$STATION_NUMBER)) {
+  dfsubset <- IHA_fullyr_s[IHA_fullyr_s$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_fullyr_flow_IHA.csv"))
+}
+
+#write a csv for each station number- open water, IHA
+for (i in unique(IHA_openwater_s$STATION_NUMBER)) {
+  dfsubset <- IHA_openwater_s[IHA_openwater_s$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_openwater_flow_IHA.csv"))
+}
+
+#write a csv for each station number- closed water, IHA
+for (i in unique(IHA_closedwater_s$STATION_NUMBER)) {
+  dfsubset <- IHA_closedwater_s[IHA_closedwater_s$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_closed_flow_IHA.csv"))
+}
+
+```
+
+
+#7 Calculate Ice variables
+-full dataset 
+```{r}
+
+#data prep 
 #change the date format, and fill any values that are missing with preceding values 
-stns_yearmonthday <- stns_ready %>%
+stns_yearmonthday <- stns_ready_full %>%
   mutate(Date = as.Date(Date)) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup')
@@ -178,12 +260,7 @@ output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER")
 output2 <- bind_rows(stn_g2, .id = "STATION_NUMBER")
 output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
 
-```
-
-#7 Ice variables tidying
-```{r}
 #Deal with each output df having different lengths and not being able to combine them
-
 #find max and min years for each result df
 minyro1 <- min(output1$waterYear)
 maxyro1 <- max(output1$waterYear)
@@ -207,39 +284,151 @@ output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
 complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
 
-df_ICE <- cbind(output1_ex, output2_ex, output3_ex)
+df_ICE_full <- cbind(output1_ex, output2_ex, output3_ex)
 
-df_ICE_final <- df_ICE[!duplicated(as.list(df_ICE))] #removed duplicated columns
+df_ICE_full_final <- df_ICE_full[!duplicated(as.list(df_ICE_full))] #removed duplicated columns (delete this if columns other than station number are the same)
 
-View(df_ICE_final)
+
+```
+
+-open water
+```{r}
+
+#data prep 
+#change the date format, and fill any values that are missing with preceding values 
+stns_yearmonthday <- stns_ready_openwater %>%
+  mutate(Date = as.Date(Date)) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup')
+
+# make a list of dfs- split by station number
+lst_stns <- split(stns_yearmonthday, stns_yearmonthday$STATION_NUMBER )
+
+#apply ice variable function to all dfs in the list, by station 
+stn_g1 <- lapply(lst_stns, Group_1_ice_cover)
+stn_g2 <- lapply(lst_stns, Group_2_freeze_thaw)
+stn_g3 <- lapply(lst_stns, Group_3_freshet)
+
+#Unnlist the outputs
+output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER") 
+output2 <- bind_rows(stn_g2, .id = "STATION_NUMBER")
+output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
+
+#Deal with each output df having different lengths and not being able to combine them
+#find max and min years for each result df
+minyro1 <- min(output1$waterYear)
+maxyro1 <- max(output1$waterYear)
+
+minyro2 <- min(output2$waterYear)
+maxyro2 <- max(output2$waterYear)
+
+minyro3 <- min(output3$waterYear)
+maxyro3 <- max(output3$waterYear)
+
+#expand data set to include all years for all output dfs
+output1_ex <- output1 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
+
+output2_ex <- output2 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
+
+output3_ex <- output3 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
+
+df_ICE_opwater <- cbind(output1_ex, output2_ex, output3_ex)
+
+df_ICE_opwater_final <- df_ICE_opwater[!duplicated(as.list(df_ICE_opwater))] #removed duplicated columns (delete this if columns other than station number are the same)
+
+
+```
+
+-closed water
+```{r}
+
+#data prep 
+#change the date format, and fill any values that are missing with preceding values 
+stns_yearmonthday <- stns_ready_closed %>%
+  mutate(Date = as.Date(Date)) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup')
+
+# make a list of dfs- split by station number
+lst_stns <- split(stns_yearmonthday, stns_yearmonthday$STATION_NUMBER )
+
+#apply ice variable function to all dfs in the list, by station 
+stn_g1 <- lapply(lst_stns, Group_1_ice_cover)
+stn_g2 <- lapply(lst_stns, Group_2_freeze_thaw)
+stn_g3 <- lapply(lst_stns, Group_3_freshet)
+
+#Unnlist the outputs
+output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER") 
+output2 <- bind_rows(stn_g2, .id = "STATION_NUMBER")
+output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
+
+#Deal with each output df having different lengths and not being able to combine them
+#find max and min years for each result df
+minyro1 <- min(output1$waterYear)
+maxyro1 <- max(output1$waterYear)
+
+minyro2 <- min(output2$waterYear)
+maxyro2 <- max(output2$waterYear)
+
+minyro3 <- min(output3$waterYear)
+maxyro3 <- max(output3$waterYear)
+
+#expand data set to include all years for all output dfs
+output1_ex <- output1 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
+
+output2_ex <- output2 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
+
+output3_ex <- output3 %>%
+mutate(waterYear = as.integer(waterYear)) %>%
+complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
+
+df_ICE_clwater <- cbind(output1_ex, output2_ex, output3_ex)
+
+df_ICE_clwater_final <- df_ICE_clwater[!duplicated(as.list(df_ICE_clwater))] #removed duplicated columns (delete this if columns other than station number are the same)
+
 ```
 
 #8 Export Ice variables to csv
 
 ```{r}
 
-df1 <- df_ICE_final %>% filter(STATION_NUMBER == "07KC001") 
-df2 <- df_ICE_final %>% filter(STATION_NUMBER == "07NB001 ")
-df3 <- df_ICE_final %>% filter(STATION_NUMBER == "07KE001 ")
-df4 <- df_ICE_final %>% filter(STATION_NUMBER == "07DA001 ")
+#write a csv for each station number- full year, Ice variables
+for (i in unique(df_ICE_full_final$STATION_NUMBER)) {
+  dfsubset <- df_ICE_full_final[df_ICE_full_final$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_fullyr_Icevar.csv"))
+}
 
-write.csv(df1, "PeaceRiver_Ice.csv")
-write.csv(df2, "SlaveRiver_Ice.csv")
-write.csv(df3, "BirchRiver_Ice.csv")
-write.csv(df4, "AthabascaRiver_Ice.csv")
+#write a csv for each station number- open water, Ice variables
+for (i in unique(df_ICE_opwater_final$STATION_NUMBER)) {
+  dfsubset <- df_ICE_opwater_final[df_ICE_opwater_final$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_openwater_Icevar.csv"))
+}
+
+#write a csv for each station number- closed water, Ice variables
+for (i in unique(df_ICE_clwater_final$STATION_NUMBER)) {
+  dfsubset <- df_ICE_clwater_final[df_ICE_clwater_final$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_closedwater_Icevar.csv"))
+}
+
 
 ```
 
 ##WATER LEVEL DATA
 
-#1 get water level for stations
+#1 extract water level for stations and add column for water year and day of the year
 ```{r}
+
 stns_wl <- tidyhydat::hy_daily_levels(station_number = c("07KF002", "07KF003", "07MD001"))
-
-```
-
-#2 Tidy water level data with same parameters as for IHA or diff ones? (ie delete years with 14 days na etc)
-```{r}
 
 stn_all <- stns_wl %>%
 group_by(STATION_NUMBER) %>%
@@ -256,30 +445,196 @@ stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
 stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
 
 rm(stn_all_split, stn_all_split_doy)
-
 ```
 
-#3 export water level data to csvs
+#2 export water level data to csvs
+Note: these csvs are untidied flow data. No estimates, no deleting years with >14 days of missing data, etc. See below for tidied data
+
 ```{r}
 
-07KF002	LAKE CLAIRE NEAR OUTLET TO PRAIRIE RIVER (AB)
-07KF003	MAMAWI LAKE CHANNEL AT OLD DOG CAMP
-07MD001	LAKE ATHABASCA AT FORT CHIPEWYAN
+df1 <- stn_all %>% filter(STATION_NUMBER == "07KF002")
+df2 <- stn_all %>% filter(STATION_NUMBER == "07KF003")
+df3 <- stn_all %>% filter(STATION_NUMBER == "07MD001")
+
+write.csv(df1, "LakeClaire_07KF002_WL.csv")
+write.csv(df2, "MamawiLake_07KF003_WL.csv")
+write.csv(df3, "LakeAthabasca_07MD001_WL.csv")
 
 ```
 
-#4 Run IHA for water level data 
+#3 Make three separate datasets in prep for IHA calculations: 
+-full year
+-open water data (April-October) 
+-winter/closed water (November-March)
 ```{r}
 
+stn_all <- stn_all # full dataset
+
+#open water data (change numbers in filter argument to select diff months)
+stn_openwater <- stn_all %>% 
+filter(month(Date) %in% c(4,5,6,7,8,9,10))  
+
+#closed water data (change numbers in filter argument to select diff months)
+stn_closed <- stn_all %>%
+  filter(month(Date) %in% c(11,12,1,2,3))
+
 ```
+
+#4 Prep for IHA calculations: Get rid of years that have more than 14 consecutive days of missing data, and fill in missing values
+-full dataset
+
+```{r}
+
+#data prep for full dataset
+stn_cln <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(waterYear > 1960) %>%
+  filter(waterYear != 2022)
+
+#delete years that have >14 days missing data using calc_rle function from functions for this project
+lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
+
+#unlist the station numbers
+stns_ready_full_wl <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
+
+#change date format and fill any values that are missing with preceding values 
+stns_dmy_wl <- stns_ready_full_wl %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+```
+
+-open water
+
+```{r}
+
+#data prep for full dataset
+stn_cln <- stn_openwater %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(waterYear > 1960) %>%
+  filter(waterYear != 2022)
+
+#delete years that have >14 days missing data using calc_rle function from functions for this project
+lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
+
+#unlist the station numbers
+stns_ready_opwater_wl <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
+
+#change date format and fill any values that are missing with preceding values 
+stns_opwater_wl <- stns_ready_opwater_wl %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+```
+
+-closed water
+
+```{r}
+
+#data prep for full dataset
+stn_cln <- stn_closed %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(waterYear > 1960) %>%
+  filter(waterYear != 2022)
+
+#delete years that have >14 days missing data using calc_rle function from functions for this project
+lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
+
+#unlist the station numbers
+stns_ready_cl_wl <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
+
+#change date format and fill any values that are missing with preceding values 
+stns_dmy_cl_wl <- stns_ready_cl_wl %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+```
+
+#5 IHA calculations
+-full year
+-open water
+-closed water
+
+```{r}
+
+#IHA calculations: -full year
+#make a list of dfs- split by station number
+lst_stns <- split(stns_dmy_wl, stns_dmy_wl$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_fullyr_wl <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
+
+###########################
+
+#IHA calculations: -open water
+#make a list of dfs- split by station number
+lst_stns <- split(stns_opwater_wl, stns_opwater_wl$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_openwater_wl <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
+
+###########################
+
+#IHA calculations: -closed water
+#make a list of dfs- split by station number
+lst_stns <- split(stns_dmy_cl_wl, stns_dmy_cl_wl$STATION_NUMBER )
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_closedwater_wl <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
+
+```
+
 
 #5 Export as csv for each station
 ```{r}
 
+#select variables for each dataset
+
+IHA_fullyrwl_S <- IHA_fullyr_wl %>% 
+  select("STATION_NUMBER", "Year", "1 Day Max", "30 Day Min", "30 Day Max", "Low pulse length", "High pulse length", "Reversals")
+
+IHA_openwater_wl_s <- IHA_openwater_wl  %>% 
+  select("STATION_NUMBER", "Year", "1 Day Max", "30 Day Min", "30 Day Max", "Low pulse length", "High pulse length", "Reversals")
+
+IHA_closedwater_wl_s <- IHA_closedwater_wl  %>%
+select("STATION_NUMBER", "Year", "1 Day Max", "30 Day Min", "30 Day Max", "Low pulse length", "High pulse length", "Reversals")
+
+
+#write a csv for each station number- full year, IHA
+for (i in unique(IHA_fullyrwl_S$STATION_NUMBER)) {
+  dfsubset <- IHA_fullyrwl_S[IHA_fullyrwl_S$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_fullyr_wl_IHA.csv"))
+}
+
+#write a csv for each station number- open water, IHA
+for (i in unique(IHA_openwater_wl_s$STATION_NUMBER)) {
+  dfsubset <- IHA_openwater_wl_s[IHA_openwater_wl_s$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_openwater_wl_IHA.csv"))
+}
+
+#write a csv for each station number- closed water, IHA
+for (i in unique(IHA_closedwater_wl_s$STATION_NUMBER)) {
+  dfsubset <- IHA_closedwater_wl_s[IHA_closedwater_wl_s$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_closed_wl_IHA.csv"))
+}
+
 ```
 
-#6 ice variables for water level?
-```{r}
-
-```
 

@@ -256,8 +256,8 @@ library(dataRetrieval)
           Freshet_Date <- as.Date(unlist(date_lst))
           Freshet_Flow <- unlist(flow_lst)
           Station_Number <- unlist(stn_nu)
-          Day_of_year <- unlist(doy_lst)
-          df <- cbind.data.frame(Station_Number, Freshet_Date, Day_of_year, Freshet_Flow)
+          Freshet_Dayofyear <- unlist(doy_lst)
+          df <- cbind.data.frame(Station_Number, Freshet_Date, Freshet_Dayofyear, Freshet_Flow)
           break
         }
         
