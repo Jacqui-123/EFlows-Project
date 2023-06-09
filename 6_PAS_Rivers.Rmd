@@ -1,12 +1,21 @@
-## Analysis of Ice Variables: Peace, Athabasca, and Slave River
+## Analysis of Ice Cycle Variables for Northern Rivers in Canada: Peace, Athabasca, and Slave 
 
-This is the analysis of the annual freeze-thaw cycle for rivers that experience seasonal and ice coverage in the Peace-Athabasca Delta (PAD). 
+by Jacqui Levy
 
-Climate change is causing shifts in the timing and volume of river flow, ice coverage, and ice break-up. Northern boreal rivers like the Peace, Slave, and Athabasca River maintain thick ice coverage every winter, and a predictable seasonal spring-break up season called freshet. 
+#### For the first time, scientists can analyze a river’s ice cycle using both historical and real-time data from the Water Survey of Canada database. Newly developed functions are available and applicable at scale on any river in Canada with seasonal ice coverage. They grant scientists and watershed managers the tools to conduct reproducible research at scale, and enable data-driven decisions based on real-time data.
 
-This ice-break up is linked to key ecological processes: for example, it creates ice jams and flooding. This flooding replenishes nearby wetlands with water and creates and sustains rich habitat for all sorts of wildlife. 
+#### The following is an analysis of river ice regimes within the Peace-Athabasca Delta (PAD), using these newly developed functions.
 
-We looked at how the following variables are changing in the PAD over the past 60 years:
+
+### What is an ice cycle and why is it important?
+
+River ice is a major component of the hydrological cycle for northern rivers like the Peace, Slave, and Athabasca Rivers. These rivers experience thick ice coverage every winter, and a predictable seasonal spring-break up season called freshet. This ice-break up is linked to key ecological processes, such as overland flooding. This flooding replenishes nearby wetlands with water and sustains rich habitat for a biodiverse ecosystem.
+
+Climate change is causing broad spatial and temporal shifts in river ice regimes across Canada, causing harmful downstream impacts to ecosystems and wildlife. Understanding how river ice cycles are shifting is key to building adaptive watershed management plans in a changing environment.  
+
+### What statistical analysis was used and why? 
+
+I analyzed trends in the Peace-Athabasca watershed for the following variables over the past 60 years:
 
 1) The timing of the onset of freshet 
 
@@ -14,16 +23,27 @@ We looked at how the following variables are changing in the PAD over the past 6
 
 3) The length of continuous ice coverage each year. 
 
-We performed a Mann-Kendall statistical test, which is a non-parametric test that detects a monotonic trend (upwards or downwards) in the data. Analyzing hydrologic data is challenging because of serial autocorrelation (ie water flow today will be pretty similar to water flow tomorrow- they are not independent). We can safely assume that yearly variables like annual ice coverage are independent, ie when the river freezes this year isn't dependent on what day it froze last year.
+To understand changes in these variables, a Mann-Kendall statistical test was used. A Mann-Kendall test is a non-parametric test that detects a monotonic trend (upwards or downwards) in the data. 
+
+Analyzing hydrological data (and other time-series data) is challenging as the daily or monthly observations are not independent of one another. They experience serial autocorrelation: a river's flow today will be pretty similar to its flow tomorrow, and these observations do not meet the Mann-Kendall test's assumption of independence. 
+
+However, yearly variables like annual ice coverage can be assumed to be independent of one another. For example, the day a river froze this year does not depend on which day it froze last year. Yearly variables such as these are frequently used in a Mann-Kendall trend analysis.  
+
+### Packages and Functions:
 
 A set of functions were developed to calculate these ice variables: https://github.com/Jacqui-123/EFlows-Project/blob/main/Eflows_FUNCTIONS.R
 
 Open-source hydrological data from the Water Survey of Canada: 
 https://www.canada.ca/en/environment-climate-change/services/water-overview/quantity/monitoring/survey.html 
 
-Open-sourced R packages used: tidyverse, tidyhydat, zoo, lubridate, ggplot, MannKendall, dataRetrieval 
+Open-sourced R packages: tidyverse, tidyhydat, zoo, lubridate, ggplot, MannKendall, dataRetrieval 
 
 Source code for this project with complete tidying workflow: https://github.com/Jacqui-123/EFlows-Project/blob/main/6_PAS_Rivers.Rmd 
+
+### Data Processing Methods:
+
+The following is a technical roadmap of how to use these new functions to calculate ice cycle variables for multiple stations and years. This method is scalable and works for multiple stations. 
+
 
 ```{r, echo=FALSE, include = FALSE}
 
@@ -41,12 +61,10 @@ library(trend)
 library(outliers)
 library(knitr)
 
-
 ```
 
 
 ```{r, include = FALSE, echo= FALSE}
-
 library(tidyverse)
 library(tidyhydat)
 library(zoo)
@@ -78,6 +96,7 @@ library(dataRetrieval)
   
   
 #RLE FUNCTION
+  
 
   calc_rle <- function(df) {
     #function to remove years that have > 14 consecutive NA values (ie 14 days in a row with no data) 
@@ -87,6 +106,7 @@ library(dataRetrieval)
     output <- {{df}}[!{{df}}$waterYear %in% yearstoremove, ]
     return(output)
   }
+  
   
 #DAY OF THE WATER YEAR FUNCTION
   #Date should be in yyyy-mm-dd
@@ -303,8 +323,8 @@ library(dataRetrieval)
           Freshet_Date <- as.Date(unlist(date_lst))
           Freshet_Flow <- unlist(flow_lst)
           Station_Number <- unlist(stn_nu)
-          Day_of_year <- unlist(doy_lst)
-          df <- cbind.data.frame(Station_Number, Freshet_Date, Day_of_year, Freshet_Flow)
+          Freshet_Dayofyear <- unlist(doy_lst)
+          df <- cbind.data.frame(Station_Number, Freshet_Date, Freshet_Dayofyear, Freshet_Flow)
           break
         }
         
@@ -406,11 +426,14 @@ library(dataRetrieval)
 
 ```
 
-1) First, retrieve water flow data from the Water Survey of Canada, and add a column for Water year and a column for day of the water year.
-A "water year" or hydrological year is from October 1- September 30th.
+#### 1) First, retrieve water flow data from the Water Survey of Canada, and add a column for "water year" and a column for "day of the water year".
+
+A "water year" or hydrological year, is measured from October 1-September 30th, and measures the cycle of a watershed from its lowest baseflow point. 
+
+A "day of the year" or Julian day, is a continuous count of days from the beginning of the water year. These methods are used in hydrology to standardize the reporting of water statistics and forecasting.
 
 ```{r}
-#get stns to analyze
+#extract stations from the Water Survey of Canada database
 stn_all <- tidyhydat::hy_daily_flows(station_number = c('07BE001','07DA001', '07HA001','07NB001', '07KC001', '07AD002','07DA001', '07AA002')) 
 
 stn_all <- stn_all %>%
@@ -432,7 +455,9 @@ rm(stn_all_split, stn_all_split_doy)
 ```
  
  
-2) Tidy data: get rid of years that have more than 14 consecutive days of missing data, and fill in missing values 
+#### 2) Tidy data: detect and resolve anomalies and deal with missing data. 
+
+Use the functions built for this project to delete years with more than 14 consecutive days of missing data, and the tidyverse package to estimate missing observations using the last existing observation.
  
 ```{r, results = 'hide'}
 
@@ -441,27 +466,23 @@ stn_cln <- stn_all %>%
   filter(waterYear > 1960) %>%
   filter(waterYear != 2022)
 
-#delete years that have >14 days missing data using calc_rle function from open-source functions for this project
+#delete years that have >14 days missing data using calc_rle function from functions I built for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
 lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
 
 #unlist the station numbers
 stns_ready <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
 
-```
-
-
-```{r, echo=FALSE, include = FALSE}
-#change date format and fill any values that are missing with preceding values 
+#reformat date and fill remaining missing values with preceding values
 stns_daymonthyear <- stns_ready %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
-  fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
-
+  fill(Value, .direction = 'downup')
 ```
 
+
 ```{r, echo=FALSE, include = FALSE}
-# IHA calcs
+# IHA calcs - not included in Ice cycle rpubs document
 
 #make a list of dfs- split by station number
 lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER )
@@ -488,11 +509,12 @@ stns_yearmonthday <- stns_ready %>%
 
 ```
  
-  
-  
-3) Next, calculate the ice variables using the ice functions. These functions calculate the timing of the onset of freshet, the freeze and thaw dates, and the days of total continuous ice coverage. Use the split-apply-combine method to loop  over a list of data frames to calculate all variables for multiple stations.
- 
 
+#### 3) Calculate the ice cycle variables using the ice functions
+
+These functions calculate the timing of the onset of freshet, the freeze and thaw dates, and the days of total continuous ice coverage. Use the split-apply-combine method to loop over a list of data frames and calculate all variables for multiple stations.
+
+See source code for how to combine the output dataframes, especially if there are an uneven number of years for each station.
 ```{r} 
 #first make a list of dfs- split by station number
 lst_stns <- split(stns_yearmonthday, stns_yearmonthday$STATION_NUMBER )
@@ -506,6 +528,7 @@ stn_g3 <- lapply(lst_stns, Group_3_freshet)
 output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER") 
 output2 <- bind_rows(stn_g2, .id = "STATION_NUMBER")
 output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
+
 
 ```
 
@@ -541,15 +564,21 @@ df_ICE <- cbind(output1_ex, output2_ex, output3_ex)
 
 df_ICE_final <- df_ICE[!duplicated(as.list(df_ICE))] #removed duplicated columns
 
-View(df_ICE_final)
+#View(df_ICE_final)
 
 #write.csv(df_ICE_final, "ICE.csv")
 
 ```
  
  
-4) Mann-Kendall Trend Analysis: Use the Mann-Kendall package and the MK function (calc_MK) from "Eflows_FUNCTIONS.R". Tests were performed at an alpha = .05
+#### 4) Mann-Kendall Trend Analysis: Use the MK function created for this project 
 
+Tests were performed at an alpha = .05, a conservative level to ensure a low probability of a type I error.
+
+
+#### __Results table for select stations:__
+
+   
 ```{r, echo=FALSE, include = FALSE}
 #Mann-Kendall Trend Analysis - IHA Variables 
 
@@ -619,7 +648,7 @@ View(result_MK_IHA)
 
  
 ```{r, echo = FALSE, include = FALSE}
-DY <- calc_MK(df_ICE_final, parameter = Day_of_year, start = 1961) %>%
+DY <- calc_MK(df_ICE_final, parameter = Freshet_Dayofyear, start = 1961) %>%
   rename("Freshet_Onset" = 'P_Value' )
 
 Icecover <- calc_MK(df_ICE_final, parameter = Ice_coverage_wy, start = 1961)%>%
@@ -653,7 +682,7 @@ stn_07HA001 <-  df_ICE_final %>%
   filter(STATION_NUMBER == "07HA001") %>% 
   na.omit()
 
-TS_07HA001  <- ts(stn_07HA001$Day_of_year, frequency = 1, start = c(1961,1))
+TS_07HA001  <- ts(stn_07HA001$Freshet_Dayofyear, frequency = 1, start = c(1961,1))
 
 MannKendall(TS_07HA001)
 sens.slope(TS_07HA001)
@@ -674,7 +703,7 @@ stn_07AD002 <- df_ICE_final %>%
   filter(STATION_NUMBER == "07AD002") %>% 
   na.omit()
 
-TS_07AD002  <- ts(stn_07AD002$Day_of_year, frequency = 1, start = c(1962,1))
+TS_07AD002  <- ts(stn_07AD002$Freshet_Dayofyear, frequency = 1, start = c(1962,1))
 
 MannKendall(TS_07AD002)
 sens.slope(TS_07AD002)
@@ -695,59 +724,17 @@ pettitt.test(TS_07KC001)
 ```
  
   
-5) Interpretation and analysis: Most stations had non-significant values for these ice variables. This doesn't mean that there have been no changes in ice coverage or the timing of annual freeze and thaw dates, but that our test did not detect an effect at the selected level. 
+#### __Interpretation__ 
 
-Two stations (07HA001 & 07KC001) along the Peace River had significant p-values from the Mann-Kendall test, for several of the ice variables. These are graphed below.
- 
-  
-  
-```{r, echo = FALSE, message= FALSE}
+Most stations had non-significant values for these ice variables, and the Mann-Kendall test did not detect a monotonic trend in ice coverage for most variables. 
 
-df_ICE_final %>%
-filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
-ggplot(aes(y= Day_of_year, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
-  geom_line(linewidth = .75) + 
-  geom_smooth(method = lm, se = F) +
-   #annotate(geom = "text", x = 43, y = 25, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
- #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
-  # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002 
-  #geom_hline(yintercept = 0, linetype = "dotted") +
-scale_x_discrete(breaks = seq(1960, 2020, 10)) +
-ylim(100, 275) +
-theme_classic() +
-ggtitle("Timing of Freshet for two Peace River Stations") +
-  xlab(" ") +
-  ylab("Day of the Water Year") +
-  theme(plot.title = element_text(hjust = 0.5) ) +
-#scale_colour_manual(values = pal)  + 
-  theme(legend.position = "None")
+This does not mean that there have been no changes in ice regimes, but only that this test did not detect an effect at the selected level. More precise analysis of across the full watershed are needed, and will be forthcoming.
 
-```
+It is notable from the results table that the test detected a trend for two stations (07HA001 & 07KC001) along the Peace River, across several of the ice variables. 
 
-```{r, echo = FALSE,message= FALSE}
+The ice cycle variables for these two stations are graphed below using the lm smooth method to fit a linear trend to the data.
+```{r, fig-side, fig.show="hold", out.width="50%", echo = FALSE, message= FALSE}
 
-df_ICE_final %>%
-filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
-ggplot(aes(y= Ice_coverage_wy, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
-  geom_line(linewidth = .75) + 
-    geom_smooth(method = lm, se = F) +
-  #annotate(geom = "text", x = 43, y = 25, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
- #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
-  # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002
-  #geom_hline(yintercept = 0, linetype = "dotted") +
-scale_x_discrete(breaks = seq(1960, 2020, 10)) +
-ylim(0, 250) +
-theme_classic() +
-ggtitle("Days of Continuous Ice Coverage for Peace River Stations ") +
-  xlab("Total Continuous Ice Coverage (Days)") +
-  ylab("Day of the Water Year") +
-  theme(plot.title = element_text(hjust = 0.5) ) +
-#scale_colour_manual(values = pal)  +
-  theme(legend.position = "None")
-
-```
-
-```{r, echo = FALSE, message= FALSE}
 
 df_ICE_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
@@ -761,16 +748,14 @@ ggplot(aes(y= Freeze_DOY, x = factor(waterYear), group = STATION_NUMBER, colour 
 scale_x_discrete(breaks = seq(1960, 2020, 10)) +
 ylim(0, 150) +
 theme_classic() +
-ggtitle("Timing of Annual Freeze-up (persistent ice cover) for Peace River Stations") +
+ggtitle("Timing of Winter Ice Freeze") +
   xlab(" ") +
   ylab("Day of the Water Year") +
   theme(plot.title = element_text(hjust = 0.5) ) +
 #scale_colour_manual(values = pal)  +
   theme(legend.position = "None")
 
-```
 
-```{r, echo = FALSE, message= FALSE}
 
 df_ICE_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
@@ -784,11 +769,79 @@ ggplot(aes(y= Thaw_DOY, x = factor(waterYear), group = STATION_NUMBER, colour = 
 scale_x_discrete(breaks = seq(1960, 2020, 10)) +
 ylim(115, 250) +
 theme_classic() +
-ggtitle("Timing of Annual Thaw for Peace River Stations") +
+ggtitle("Timing of Spring Thaw") +
   xlab(" ") +
   ylab("Day of the Water Year") +
   theme(plot.title = element_text(hjust = 0.5) ) +
 #scale_colour_manual(values = pal)  +
   theme(legend.position = "None")
 
+
 ```
+  
+```{r, figures-side, fig.show="hold", out.width="50%", echo = FALSE, message= FALSE}
+
+df_ICE_final %>%
+filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
+ggplot(aes(y= Freshet_Dayofyear, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
+  geom_line(linewidth = .75) + 
+  geom_smooth(method = lm, se = F) +
+   #annotate(geom = "text", x = 43, y = 25, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+ #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+  # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002 
+  #geom_hline(yintercept = 0, linetype = "dotted") +
+scale_x_discrete(breaks = seq(1960, 2020, 10)) +
+ylim(100, 275) +
+theme_classic() +
+ggtitle("Timing of Freshet") +
+  xlab(" ") +
+  ylab("Day of the Water Year") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+#scale_colour_manual(values = pal)  + 
+  theme(legend.position = "None")
+
+
+df_ICE_final %>%
+filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
+ggplot(aes(y= Ice_coverage_wy, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
+  geom_line(linewidth = .75) + 
+    geom_smooth(method = lm, se = F) +
+  #annotate(geom = "text", x = 43, y = 25, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
+ #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
+  # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002
+  #geom_hline(yintercept = 0, linetype = "dotted") +
+scale_x_discrete(breaks = seq(1960, 2020, 10)) +
+ylim(0, 250) +
+theme_classic() +
+ggtitle("Days of Continuous Ice Coverage ") +
+  ylab("Day of the Water Year") +
+    xlab(" ") +
+  theme(plot.title = element_text(hjust = 0.5) ) +
+#scale_colour_manual(values = pal)  +
+  theme(legend.position = "None")
+```
+
+
+From the graphs above, it appears that the Peace River is freezing later in the year, and thawing earlier, with less total days of continual ice coverage. This indicates a shift to a warmer and drier regime. Other studies have found similar results, but a more thorough investigation would be needed to draw any conclusions from the data here.
+
+It would also be useful to conduct a Mann-Kendall test on the freeze, thaw, and freshet flows measurements to see if these regime shifts might be caused by lower flows, or if there are other mechanistic pathways.
+
+Conversely, the timing of freshet appears to be later in the year. This could be due to lower or more variable flows, making it difficult for the function's algorithm to detect the onset of freshet at the precision is was built for. Perhaps a different algorithm is needed for different watersheds, or perhaps we are seeing unprecedented changes in watershed ice regimes. 
+
+#### __Conclusion__
+
+This document describes the workflow and methodology for using ice variable functions to assess trends in ice regimes for  rivers across Canada. 
+
+The Canadian River Ice Database Project previously calculated some of these ice cycle variables, however, they are for a select group of rivers, and were only calculated through 2015. These newly developed functions allow scientists to calculate real-time, present-day data, in addition to historical data, for any water station from the Water Survey of Canada.  
+
+The next step in this project will be to create an accessible, open-source R package for these functions. My hope is that scientists and watershed managers will be able to use this tool in conjunction with climatic data and models, to better assess and predict broad-scale watershed changes. 
+
+
+#### __References__ 
+
+
+Beltaos, S., & Bonsal, B. (2021). Climate change impacts on Peace River ice thickness and implications to ice-jam flooding of Peace-Athabasca Delta, Canada. Cold Regions Science and Technology, 186, 103279. https://doi.org/10.1016/j.coldregions.2021.103279
+
+Beltaos, S. (2018). Frequency of ice-jam flooding of Peace-Athabasca Delta. Canadian Journal of Civil Engineering, 45(1), 71–75. https://doi.org/10.1139/cjce-2017-0434
+
+de Rham, L., Dibike, Y., Beltaos, S., Peters, D., Bonsal, B., & Prowse, T. (2020). A Canadian River Ice Database from the National Hydrometric Program Archives. Earth System Science Data, 12(3), 1835–1860. https://doi.org/10.5194/essd-12-1835-2020
