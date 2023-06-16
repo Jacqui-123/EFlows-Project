@@ -1,13 +1,12 @@
-library(tidyverse)
-library(tidyhydat)
-library(zoo)
-library(lubridate)
-library(caTools)
-library(dataRetrieval)
+library(tidyverse) #MIT
+library(tidyhydat) #Apache (but ok bc not needed in this package?)
+library(zoo) #GPL-2 | GPL-3 
+library(lubridate) #GNU general public license
+library(caTools) #GPL-3 
+library(dataRetrieval) #CC0
 
 # Various functions for calculating: IHA, Percent Change, and Ice Variables 
 # Created by Jacqui Levy
-
 
 #######PART 1 - MISC FUNCTIONS#####
 

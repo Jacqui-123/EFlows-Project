@@ -2,9 +2,11 @@
 
 by Jacqui Levy
 
-#### For the first time, scientists can analyze a river’s ice cycle using both historical and real-time data from the Water Survey of Canada database. Newly developed functions are available and applicable at scale on any river in Canada with seasonal ice coverage. They grant scientists and watershed managers the tools to conduct reproducible research at scale, and enable data-driven decisions based on real-time data.
+#### For the first time, scientists can analyze a river’s ice cycle using both historical and current data from the Water Survey of Canada database. Newly developed functions are available and applicable at scale on any river in Canada with seasonal ice coverage. They grant scientists and watershed managers the tools to conduct reproducible research at scale, and enable data-driven water use decisions.
 
 #### The following is an analysis of river ice regimes within the Peace-Athabasca Delta (PAD), using these newly developed functions.
+
+Note: These functions are undergoing unit-testing and being developed into an open-source R package for public use. 
 
 
 ### What is an ice cycle and why is it important?
@@ -21,7 +23,7 @@ I analyzed trends in the Peace-Athabasca watershed for the following variables o
 
 2) The timing of freeze-up and break-up dates
 
-3) The length of continuous ice coverage each year. 
+3) The length of continuous ice coverage each year 
 
 To understand changes in these variables, a Mann-Kendall statistical test was used. A Mann-Kendall test is a non-parametric test that detects a monotonic trend (upwards or downwards) in the data. 
 
@@ -439,7 +441,7 @@ stn_all <- tidyhydat::hy_daily_flows(station_number = c('07BE001','07DA001', '07
 stn_all <- stn_all %>%
 group_by(STATION_NUMBER) %>%
 #make a complete set of days for each year 
-complete(Date = seq.Date(as.Date("1920/10/1"), as.Date("2022/09/30"), by="day"))
+tidyr::complete(Date = seq.Date(as.Date("1920/10/1"), as.Date("2022/09/30"), by="day"))
 
 #add water year
 stn_all <- addWaterYear(stn_all) %>%
@@ -451,6 +453,7 @@ stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
 stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
 
 rm(stn_all_split, stn_all_split_doy)
+View(stn_all_split)
 
 ```
  
@@ -478,6 +481,7 @@ stns_daymonthyear <- stns_ready %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup')
+
 ```
 
 
@@ -485,7 +489,7 @@ stns_daymonthyear <- stns_ready %>%
 # IHA calcs - not included in Ice cycle rpubs document
 
 #make a list of dfs- split by station number
-lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER )
+lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER)
 
 #apply calc_IHA function to all dfs in the list
 lst_stns_IHA <- lapply(lst_stns, calc_IHA)
@@ -529,6 +533,8 @@ output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER")
 output2 <- bind_rows(stn_g2, .id = "STATION_NUMBER")
 output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
 
+test <- stn_all %>%
+  filter(STATION_NUMBER == "07AA002")
 
 ```
 
@@ -550,21 +556,21 @@ maxyro3 <- max(output3$waterYear)
 #expand data set to include all years for all output dfs
 output1_ex <- output1 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
+tidyr::complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
 
 output2_ex <- output2 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
+tidyr::complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
 
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
+tidyr::complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
 
 df_ICE <- cbind(output1_ex, output2_ex, output3_ex)
 
 df_ICE_final <- df_ICE[!duplicated(as.list(df_ICE))] #removed duplicated columns
 
-#View(df_ICE_final)
+View(df_ICE_final)
 
 #write.csv(df_ICE_final, "ICE.csv")
 
@@ -589,7 +595,7 @@ for (i in unique(IHA$STATION_NUMBER)) {
   maxyr <- max(IHA$Year)
   IHA_post_expand <- IHA %>%
     mutate(Year = as.integer(Year)) %>%
-    complete(STATION_NUMBER, Year = minyr:maxyr)
+    tidyr::complete(STATION_NUMBER, Year = minyr:maxyr)
   return(IHA_post_expand)
 }
 
@@ -832,9 +838,9 @@ Conversely, the timing of freshet appears to be later in the year. This could be
 
 This document describes the workflow and methodology for using ice variable functions to assess trends in ice regimes for  rivers across Canada. 
 
-The Canadian River Ice Database Project previously calculated some of these ice cycle variables, however, they are for a select group of rivers, and were only calculated through 2015. These newly developed functions allow scientists to calculate real-time, present-day data, in addition to historical data, for any water station from the Water Survey of Canada.  
+The Canadian River Ice Database Project previously calculated some of these ice cycle variables, however, they were only calculated for approximately 300 water stations, and only through 2015. These newly developed functions allow scientists to calculate present-day data, in addition to historical data, for any of the 1000+ water stations from the Water Survey of Canada.  
 
-The next step in this project will be to create an accessible, open-source R package for these functions. My hope is that scientists and watershed managers will be able to use this tool in conjunction with climatic data and models, to better assess and predict broad-scale watershed changes. 
+The next step in this project is to create an accessible, open-source R package, and apply this analysis broadly for approximately 900+ reference stations within Canada. My hope is that scientists and watershed managers will be able to use this tool in conjunction with climatic data and models, to better assess and predict broad-scale watershed changes. 
 
 
 #### __References__ 
