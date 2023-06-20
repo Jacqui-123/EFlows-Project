@@ -1,6 +1,6 @@
 
 Pre and Post Bennett Dam Construction Continuous Stations - From Tidyhydat & the Water Survey of CA
-Variables Calculated: IHA, ICE, and Percent Change
+variables Calculated: IHA, ice, and Percent Change
 Run "Eflows_FUNCTIONS.R" before running this file.
 
 
@@ -138,7 +138,7 @@ stns_yearmonthday_post <- stns_ready_post %>%
 
 ```
 
-# Calculate Ice Variables - pre
+# Calculate ice variables - pre
 ```{r}
 #make a list of dfs- split by station number
 stn_pre_split <- split(stns_yearmonthday_pre, stns_yearmonthday_pre$STATION_NUMBER )
@@ -162,38 +162,38 @@ output3 <- bind_rows(stn_pre_g3, .id = "STATION_NUMBER")
 #Deal with each output df having different lengths and not being able to combine them
 
 #find max and min years for each result df
-minyro1 <- min(output1$waterYear)
-maxyr01 <- max(output1$waterYear)
+min_yro1 <- min(output1$waterYear)
+max_yr01 <- max(output1$waterYear)
 
-minyro2 <- min(output2$waterYear)
-maxyr02 <- max(output2$waterYear)
+min_yro2 <- min(output2$waterYear)
+max_yr02 <- max(output2$waterYear)
 
-minyro3 <- min(output3$waterYear)
-maxyr03 <- max(output3$waterYear)
+min_yro3 <- min(output3$waterYear)
+max_yr03 <- max(output3$waterYear)
 
 #expand data set to include all years for all output dfs
 output1_ex <- output1 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro1:maxyr01) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro1:max_yr01) #fills NA for values for missing years 
 
 output2_ex <- output2 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro2:maxyr02) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro2:max_yr02) #fills NA for values for missing years 
 
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro3:maxyr03) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro3:max_yr03) #fills NA for values for missing years 
 
-df_ICE_pre <- cbind(output1_ex, output2_ex, output3_ex)
+df_ice_pre <- cbind(output1_ex, output2_ex, output3_ex)
 
-df_ICE_pre_final <- df_ICE_pre[!duplicated(as.list(df_ICE_pre))] #removed duplicated columns
+df_ice_pre_final <- df_ice_pre[!duplicated(as.list(df_ice_pre))] #removed duplicated columns
 
-View(df_ICE_pre_final)
-#write.csv(df_ICE_pre_final, "ice1.csv")
+View(df_ice_pre_final)
+#write.csv(df_ice_pre_final, "ice1.csv")
 
 ```
 
-#Calculate Ice Variables - post
+#Calculate ice variables - post
 
 ```{r}
 #make a list of dfs- split by station number
@@ -216,40 +216,40 @@ output3 <- bind_rows(stn_post_g3, .id = "STATION_NUMBER")
 #Deal with each output df having different lengths and not being able to combine them
 
 #find max and min years for each result df
-minyro1 <- min(output1$waterYear)
-maxyr01 <- max(output1$waterYear)
+min_yr01 <- min(output1$waterYear)
+max_yr01 <- max(output1$waterYear)
 
-minyro2 <- min(output2$waterYear)
-maxyr02 <- max(output2$waterYear)
+min_yr02 <- min(output2$waterYear)
+max_yr02 <- max(output2$waterYear)
 
-minyro3 <- min(output3$waterYear)
-maxyr03 <- max(output3$waterYear)
+min_yr03 <- min(output3$waterYear)
+max_yr03 <- max(output3$waterYear)
 
 
 #expand data set to include all years for all output dfs
 output1_ex <- output1 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro1:maxyr01) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yr01:max_yr01) #fills NA for values for missing years 
 
 output2_ex <- output2 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro2:maxyr02) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yr02:max_yr02) #fills NA for values for missing years 
 
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro3:maxyr03) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yr03:max_yr03) #fills NA for values for missing years 
 
-df_ICE_post <- cbind(output1_ex, output2_ex, output3_ex)
+df_ice_post <- cbind(output1_ex, output2_ex, output3_ex)
 
-df_ICE_post_final <- df_ICE_post[!duplicated(as.list(df_ICE_post))] #removed duplicated columns
+df_ice_post_final <- df_ice_post[!duplicated(as.list(df_ice_post))] #removed duplicated columns
 
-View(df_ICE_post_final)
+View(df_ice_post_final)
 
-#write.csv(df_ICE_post_final, "df_ICE_post_final.csv")
+#write.csv(df_ice_post_final, "df_ice_post_final.csv")
 
 ```
 
-#Percent change, IHA Variables 
+#Percent change, IHA variables 
 ```{r}
 #data prep, IHA-pre
 #calc the medians value for each stn number for the IHA-pre df
@@ -260,12 +260,12 @@ IHA_medians_pre <- IHA_pre %>%
 #data prep, IHA-post
 #find the min and max year for the IHA_post df so there is an even number of years for each station
 
-minyr <-min(IHA_post$Year)
-maxyr <- max(IHA_post$Year)
+min_yr <-min(IHA_post$Year)
+max_yr <- max(IHA_post$Year)
 
 IHA_pst <- IHA_post %>%
   mutate(Year = as.integer(Year)) %>%
-  complete(STATION_NUMBER, Year = minyr:maxyr) #fills NA for values for missing years 
+  complete(STATION_NUMBER, Year = min_yr:max_yr) #fills NA for values for missing years 
 
 ```
 
@@ -290,36 +290,36 @@ View(final_pc_IHA)
 
 ```
 
-#Percent change, Ice Variables 
+#Percent change, Ice variables 
 
 ```{r}
 
 #get rid of dates and rely on doy to figure out time changes (cant avg a date)
 
-ICE_pre <- df_ICE_pre_final %>%
+ice_pre <- df_ice_pre_final %>%
   select(-c(Freeze_Date, Thaw_Date, Station_Number, Freshet_Date)) %>%
   rename(Freshet_Doy = Day_of_year)
 
-ICE_post <- df_ICE_post_final %>% 
+ice_post <- df_ice_post_final %>% 
   select(-c(Freeze_Date, Thaw_Date, Station_Number, Freshet_Date)) %>%
   rename(Freshet_Doy = Day_of_year) 
 
-#data prep, ICE-pre
-#calc the median for each stn number for the ICE-pre df
-ICE_medians_pre <- ICE_pre %>%
+#data prep, ice-pre
+#calc the median for each stn number for the ice-pre df
+ice_medians_pre <- ice_pre %>%
   group_by(STATION_NUMBER) %>%
   na.omit() %>%
-  summarise(across(Ice_coverage_wy:Freshet_Flow, median)) #Change to Jan if doing cal year
+  summarise(across(ice_coverage_wy:Freshet_Flow, median)) #Change to Jan if doing cal year
 
-#data prep, ICE-post
-#find the min and max year for the ICE_post df so there is an even number of years for each station
+#data prep, ice-post
+#find the min and max year for the ice_post df so there is an even number of years for each station
 
-minyr <-min(ICE_post$waterYear)
-maxyr <- max(ICE_post$waterYear)
+min_yr <-min(ice_post$waterYear)
+max_yr <- max(ice_post$waterYear)
 
-ICE_pst <- ICE_post %>%
+ice_pst <- ice_post %>%
   mutate(waterYear = as.integer(waterYear)) %>%
-  complete(STATION_NUMBER, waterYear = minyr:maxyr) #fills NA for values for missing years 
+  complete(STATION_NUMBER, waterYear = min_yr:max_yr) #fills NA for values for missing years 
 
 ```
 
@@ -327,57 +327,57 @@ Calculate percent change
 ```{r}
 df_lst <- list()
 
-for (i in unique(ICE_medians_pre$STATION_NUMBER)) {
+for (i in unique(ice_medians_pre$STATION_NUMBER)) {
 
-calc <- calc_percent_change(ICE_medians_pre, ICE_pst, stn = i, year_col = "waterYear") #calc perc. change for all stns
+calc <- calc_percent_change(ice_medians_pre, ice_pst, stn = i, year_col = "waterYear") #calc perc. change for all stns
 calc$i <- i #add i (stn # to the calc df)
 df_lst[[i]] <- calc #add calc df to the list
 }
 
-final_pc_ICE <- bind_rows(df_lst) %>%
+final_pc_ice <- bind_rows(df_lst) %>%
  rename("Station_Number" = "i") 
 
-View(final_pc_ICE)
+View(final_pc_ice)
 
-#write.csv(final_pc_ICE, "PC_ICE.csv")
+#write.csv(final_pc_ice, "PC_ice.csv")
 ```
 
 
-#Mann-Kendall Trend Analysis - Ice Variables 
+#Mann-Kendall Trend Analysis - ice variables 
 ```{r}
 
-DY <- calc_MK(df_ICE_post_final, parameter = Day_of_year, start = 1973) %>%
+DY <- calc_MK(df_ice_post_final, parameter = Day_of_year, start = 1973) %>%
   rename("Result_Freshet_Onset" = 'P_Value' )
 
-Icecover <- calc_MK(df_ICE_post_final, parameter = Ice_coverage_wy, start = 1973)%>%
-  rename("Result_Ice_cover" = 'P_Value' )
+icecover <- calc_MK(df_ice_post_final, parameter = ice_coverage_wy, start = 1973)%>%
+  rename("Result_ice_cover" = 'P_Value' )
 
-frdoy <- calc_MK(df_ICE_post_final, parameter = Freeze_DOY, start = 1973) %>%
+frdoy <- calc_MK(df_ice_post_final, parameter = Freeze_DOY, start = 1973) %>%
   rename("Result_freeze_doy" = 'P_Value' )
 
-thawdoy <- calc_MK(df_ICE_post_final, parameter = Thaw_DOY, start = 1973)%>%
+thawdoy <- calc_MK(df_ice_post_final, parameter = Thaw_DOY, start = 1973)%>%
   rename("Result_thaw_doy" = 'P_Value' )
 
-result <- cbind(DY, Icecover, frdoy, thawdoy)
+result <- cbind(DY, icecover, frdoy, thawdoy)
 MK_result <- result[!duplicated(as.list(result))] #removed duplicated columns
 
-MK_result_final_Ice <- MK_result %>% mutate_if(is.numeric, ~round(., 3)) #round 
-View(MK_result_final_Ice)
-#write.csv(MK_result_final_Ice, "MKres.csv")
+MK_result_final_ice <- MK_result %>% mutate_if(is.numeric, ~round(., 3)) #round 
+View(MK_result_final_ice)
+#write.csv(MK_result_final_ice, "MKres.csv")
 
 ```
 
-#Mann-Kendall Trend Analysis - IHA Variables 
+#Mann-Kendall Trend Analysis - IHA variables 
 
 ```{r}
 #Expand IHA_post df to have all years for all stations so they can be used in the MK function
 
 for (i in unique(IHA_post$STATION_NUMBER)) {
-  minyr <- min(IHA_post$Year)
-  maxyr <- max(IHA_post$Year)
+  min_yr <- min(IHA_post$Year)
+  max_yr <- max(IHA_post$Year)
   IHA_post_expand <- IHA_post %>%
     mutate(Year = as.integer(Year)) %>%
-    complete(STATION_NUMBER, Year = minyr:maxyr)
+    complete(STATION_NUMBER, Year = min_yr:max_yr)
   return(IHA_post_expand)
 }
 

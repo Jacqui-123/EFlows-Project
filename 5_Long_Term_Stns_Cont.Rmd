@@ -1,7 +1,7 @@
-# this is a test 
+
 Long term, Continuous Stations - From Tidyhydat & the Water Survey of CA.
 
-Variables Calculated: IHA, ICE
+Variables Calculated: IHA, ice cycle variables
 Run "Eflows_FUNCTIONS.R" before running this file.
 
 
@@ -99,7 +99,7 @@ stns_yearmonthday <- stns_ready %>%
 
 ```
 
-#ICE Variables 
+#ice Variables 
 ```{r}
 #make a list of dfs- split by station number
 lst_stns <- split(stns_yearmonthday, stns_yearmonthday$STATION_NUMBER )
@@ -121,61 +121,61 @@ output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
 #Deal with each output df having different lengths and not being able to combine them
 
 #find max and min years for each result df
-minyro1 <- min(output1$waterYear)
-maxyr01 <- max(output1$waterYear)
+min_yro1 <- min(output1$waterYear)
+max_yr01 <- max(output1$waterYear)
 
-minyro2 <- min(output2$waterYear)
-maxyr02 <- max(output2$waterYear)
+min_yro2 <- min(output2$waterYear)
+max_yr02 <- max(output2$waterYear)
 
-minyro3 <- min(output3$waterYear)
-maxyr03 <- max(output3$waterYear)
+min_yro3 <- min(output3$waterYear)
+max_yr03 <- max(output3$waterYear)
 
 
 #expand data set to include all years for all output dfs
 output1_ex <- output1 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro1:maxyr01) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro1:max_yr01) #fills NA for values for missing years 
 
 output2_ex <- output2 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro2:maxyr02) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro2:max_yr02) #fills NA for values for missing years 
 
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro3:maxyr03) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro3:max_yr03) #fills NA for values for missing years 
 
-df_ICE <- cbind(output1_ex, output2_ex, output3_ex)
+df_ice <- cbind(output1_ex, output2_ex, output3_ex)
 
-df_ICE_final <- df_ICE[!duplicated(as.list(df_ICE))] #removed duplicated columns
+df_ice_final <- df_ice[!duplicated(as.list(df_ice))] #removed duplicated columns
 
-View(df_ICE_final)
+View(df_ice_final)
 
-#write.csv(df_ICE_final, "ICE.csv")
+#write.csv(df_ice_final, "ice.csv")
 ```
 
-#Mann-Kendall Trend Analysis - Ice Variables
+#Mann-Kendall Trend Analysis - ice Variables
 
 ```{r}
 
-DY <- calc_MK(df_ICE_final, parameter = Day_of_year, start = 1956) %>%
+DY <- calc_MK(df_ice_final, parameter = Day_of_year, start = 1956) %>%
   rename("Result_Freshet_Onset" = 'P_Value' )
 
-Icecover <- calc_MK(df_ICE_final, parameter = Ice_coverage_wy, start = 1956)%>%
-  rename("Result_Ice_cover" = 'P_Value' )
+icecover <- calc_MK(df_ice_final, parameter = ice_coverage_wy, start = 1956)%>%
+  rename("Result_ice_cover" = 'P_Value' )
 
-frdoy <- calc_MK(df_ICE_final, parameter = Freeze_DOY, start = 1956) %>%
+frdoy <- calc_MK(df_ice_final, parameter = Freeze_DOY, start = 1956) %>%
   rename("Result_freeze_doy" = 'P_Value' )
 
-thawdoy <- calc_MK(df_ICE_final, parameter = Thaw_DOY, start = 1956)%>%
+thawdoy <- calc_MK(df_ice_final, parameter = Thaw_DOY, start = 1956)%>%
   rename("Result_thaw_doy" = 'P_Value' )
 
-result <- cbind(DY, Icecover, frdoy, thawdoy)
+result <- cbind(DY, icecover, frdoy, thawdoy)
 MK_result_final <- result[!duplicated(as.list(result))] #removed duplicated columns
 
-MK_result_final_Ice <- MK_result_final %>% mutate_if(is.numeric, ~round(., 3)) #round 
+MK_result_final_ice <- MK_result_final %>% mutate_if(is.numeric, ~round(., 3)) #round 
 
-View(MK_result_final_Ice)
-#write.csv(MK_result_final_Ice, "MKres.csv")
+View(MK_result_final_ice)
+#write.csv(MK_result_final_ice, "MKres.csv")
 
 STOP
 ```
@@ -186,11 +186,11 @@ STOP
 #Expand IHA df to have all years for all stations so they can be used in the MK function
 
 for (i in unique(IHA$STATION_NUMBER)) {
-  minyr <- min(IHA$Year)
-  maxyr <- max(IHA$Year)
+  min_yr <- min(IHA$Year)
+  max_yr <- max(IHA$Year)
   IHA_post_expand <- IHA %>%
     mutate(Year = as.integer(Year)) %>%
-    complete(STATION_NUMBER, Year = minyr:maxyr)
+    complete(STATION_NUMBER, Year = min_yr:max_yr)
   return(IHA_post_expand)
 }
 
@@ -432,7 +432,7 @@ plot(d)
 #try MK with yearly timing of freshet for a station on the PEace or Slave River
 ```{r}
 
-stn_07HA001 <- df_ICE_final %>%
+stn_07HA001 <- df_ice_final %>%
   filter(STATION_NUMBER == "07HA001") %>%
   filter(waterYear > 1958) %>%
   filter(waterYear < 2021)
@@ -524,16 +524,16 @@ output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER")
 output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
 
 #find max and min years for each result df to make sure have a complete set of years
-minyr01 <- min(output1$waterYear)
-maxyr01 <- max(output1$waterYear)
+min_yr01 <- min(output1$waterYear)
+max_yr01 <- max(output1$waterYear)
 
-minyr03 <- min(output3$waterYear)
-maxyr03 <- max(output3$waterYear)
+min_yr03 <- min(output3$waterYear)
+max_yr03 <- max(output3$waterYear)
 
 #expand data set to include all years for all output dfs
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyr03:maxyr03) #fills NA for values for missing years
+complete(STATION_NUMBER, waterYear = min_yr03:max_yr03) #fills NA for values for missing years
 ```
 
 #MK timing of freshet 
@@ -599,7 +599,7 @@ stn_07KC001 <- output3_ex %>%
 stn_07HA001 <- output1_ex %>%
   filter(STATION_NUMBER == "07HA001")
 
-TS_07HA001 <- ts(stn_07HA001$Ice_coverage_wy, frequency = 1, start = c(1962, 1))
+TS_07HA001 <- ts(stn_07HA001$ice_coverage_wy, frequency = 1, start = c(1962, 1))
 
 plot.ts(TS_07HA001)
 
@@ -618,9 +618,9 @@ stn_07KC001 <- output1_ex %>%
   filter(waterYear != 1968) %>%
   na.omit()
 
-grubbs.test(stn_07KC001$Ice_coverage_wy)
+grubbs.test(stn_07KC001$ice_coverage_wy)
 
-TS_07KC001 <- ts(stn_07KC001$Ice_coverage_wy, frequency = 1, start = c(1962,1))
+TS_07KC001 <- ts(stn_07KC001$ice_coverage_wy, frequency = 1, start = c(1962,1))
 
 MannKendall(TS_07KC001) #p = .054
 sens.slope(TS_07KC001)  #-.2

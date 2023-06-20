@@ -1,4 +1,4 @@
-## Analysis of Ice Cycle Variables for Northern Rivers in Canada: Peace, Athabasca, and Slave 
+## Analysis of ice Cycle Variables for Northern Rivers in Canada: Peace, Athabasca, and Slave 
 
 by Jacqui Levy
 
@@ -74,7 +74,7 @@ library(lubridate)
 library(caTools)
 library(dataRetrieval)
 
-# Various functions for calculating: IHA, Percent Change, and Ice Variables 
+# Various functions for calculating: IHA, Percent Change, and ice Variables 
 # Created by Jacqui Levy
 
 
@@ -172,13 +172,13 @@ library(dataRetrieval)
   }
 
   
-#######PART 3 - ICE VARIABLES#####
+#######PART 3 - ice VARIABLES#####
   
 #Used to calculate the freeze-up dates, ice break-up dates, and continuous ice coverage
 #df must have col names: "day_of_year", "Value", "Symbol", "Date", "waterYear"
 #Date must be in yyyy-mm-dd format for all ice variables functions
 
-#GROUP 1 FUNCTION - ICE COVER 
+#GROUP 1 FUNCTION - ice COVER 
   
   Group_1_ice_cover <- function(data) {
     #function returns a df for the length of ice coverage, per water year
@@ -194,10 +194,10 @@ library(dataRetrieval)
       lst[[i]] <- length_B_date
     }
     
-    Ice_coverage_wy <- data.frame(waterYear = names(lst), Ice_coverage_wy = unlist(lst))
-    rownames(Ice_coverage_wy) <-NULL
+    ice_coverage_wy <- data.frame(waterYear = names(lst), ice_coverage_wy = unlist(lst))
+    rownames(ice_coverage_wy) <-NULL
    
-    return(Ice_coverage_wy)
+    return(ice_coverage_wy)
     
   }
   
@@ -263,8 +263,8 @@ library(dataRetrieval)
     
     df <- cbind.data.frame(Freeze_Date,Freeze_DOY,Flow_Freeze,Thaw_Date,Thaw_DOY, Flow_Thaw)
     
-    Ice_coverage_dates_flow <- rownames_to_column(df, "waterYear")
-    return(Ice_coverage_dates_flow)
+    ice_coverage_dates_flow <- rownames_to_column(df, "waterYear")
+    return(ice_coverage_dates_flow)
     
   }
   
@@ -486,7 +486,7 @@ stns_daymonthyear <- stns_ready %>%
 
 
 ```{r, echo=FALSE, include = FALSE}
-# IHA calcs - not included in Ice cycle rpubs document
+# IHA calcs - not included in ice cycle rpubs document
 
 #make a list of dfs- split by station number
 lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER)
@@ -544,35 +544,35 @@ test <- stn_all %>%
 #Deal with each output df having different lengths and not being able to combine them
 
 #find max and min years for each result df
-minyro1 <- min(output1$waterYear)
-maxyro1 <- max(output1$waterYear)
+min_yro1 <- min(output1$waterYear)
+max_yro1 <- max(output1$waterYear)
 
-minyro2 <- min(output2$waterYear)
-maxyro2 <- max(output2$waterYear)
+min_yro2 <- min(output2$waterYear)
+max_yro2 <- max(output2$waterYear)
 
-minyro3 <- min(output3$waterYear)
-maxyro3 <- max(output3$waterYear)
+min_yro3 <- min(output3$waterYear)
+max_yro3 <- max(output3$waterYear)
 
 #expand data set to include all years for all output dfs
 output1_ex <- output1 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-tidyr::complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
+tidyr::complete(STATION_NUMBER, waterYear = min_yro1:max_yro1) #fills NA for values for missing years 
 
 output2_ex <- output2 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-tidyr::complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
+tidyr::complete(STATION_NUMBER, waterYear = min_yro2:max_yro2) #fills NA for values for missing years 
 
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-tidyr::complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
+tidyr::complete(STATION_NUMBER, waterYear = min_yro3:max_yro3) #fills NA for values for missing years 
 
-df_ICE <- cbind(output1_ex, output2_ex, output3_ex)
+df_ice <- cbind(output1_ex, output2_ex, output3_ex)
 
-df_ICE_final <- df_ICE[!duplicated(as.list(df_ICE))] #removed duplicated columns
+df_ice_final <- df_ice[!duplicated(as.list(df_ice))] #removed duplicated columns
 
-View(df_ICE_final)
+View(df_ice_final)
 
-#write.csv(df_ICE_final, "ICE.csv")
+#write.csv(df_ice_final, "ice.csv")
 
 ```
  
@@ -591,11 +591,11 @@ Tests were performed at an alpha = .05, a conservative level to ensure a low pro
 #Expand IHA_post df to have all years for all stations so they can be used in the MK function
 
 for (i in unique(IHA$STATION_NUMBER)) {
-  minyr <- min(IHA$Year)
-  maxyr <- max(IHA$Year)
+  min_yr <- min(IHA$Year)
+  max_yr <- max(IHA$Year)
   IHA_post_expand <- IHA %>%
     mutate(Year = as.integer(Year)) %>%
-    tidyr::complete(STATION_NUMBER, Year = minyr:maxyr)
+    tidyr::complete(STATION_NUMBER, Year = min_yr:max_yr)
   return(IHA_post_expand)
 }
 
@@ -654,19 +654,19 @@ View(result_MK_IHA)
 
  
 ```{r, echo = FALSE, include = FALSE}
-DY <- calc_MK(df_ICE_final, parameter = Freshet_Dayofyear, start = 1961) %>%
+DY <- calc_MK(df_ice_final, parameter = Freshet_Dayofyear, start = 1961) %>%
   rename("Freshet_Onset" = 'P_Value' )
 
-Icecover <- calc_MK(df_ICE_final, parameter = Ice_coverage_wy, start = 1961)%>%
-  rename("Ice_cover" = 'P_Value' )
+icecover <- calc_MK(df_ice_final, parameter = ice_coverage_wy, start = 1961)%>%
+  rename("ice_cover" = 'P_Value' )
 
-frdoy <- calc_MK(df_ICE_final, parameter = Freeze_DOY, start = 1961) %>%
+frdoy <- calc_MK(df_ice_final, parameter = Freeze_DOY, start = 1961) %>%
   rename("Freeze_doy" = 'P_Value' )
 
-thawdoy <- calc_MK(df_ICE_final, parameter = Thaw_DOY, start = 1961)%>%
+thawdoy <- calc_MK(df_ice_final, parameter = Thaw_DOY, start = 1961)%>%
   rename("Thaw_doy" = 'P_Value' )
 
-result <- cbind(DY, Icecover, frdoy, thawdoy)
+result <- cbind(DY, icecover, frdoy, thawdoy)
 MK_result_final <- result[!duplicated(as.list(result))] #removed duplicated columns
 MK_result_final <- MK_result_final %>% mutate_if(is.numeric, ~round(., 3)) #round 
 View(MK_result_final)
@@ -684,7 +684,7 @@ kable(MK_result_final[3:6,], caption = " ")
 #new for this rpubs document
 
 #HA001
-stn_07HA001 <-  df_ICE_final %>%
+stn_07HA001 <-  df_ice_final %>%
   filter(STATION_NUMBER == "07HA001") %>% 
   na.omit()
 
@@ -695,17 +695,17 @@ sens.slope(TS_07HA001)
 pettitt.test(TS_07HA001)
 
 #AA002
-stn_07AA002 <- df_ICE_final %>%
+stn_07AA002 <- df_ice_final %>%
     filter(STATION_NUMBER == "07AA002") %>%
   na.omit()
 
-TS_07AA002  <- ts(stn_07AA002$Ice_coverage_wy, frequency = 1, start = c(1971,1))
+TS_07AA002  <- ts(stn_07AA002$ice_coverage_wy, frequency = 1, start = c(1971,1))
 MannKendall(TS_07AA002)
 sens.slope(TS_07AA002)
 pettitt.test(TS_07AA002)
 
 #AD002
-stn_07AD002 <- df_ICE_final %>%
+stn_07AD002 <- df_ice_final %>%
   filter(STATION_NUMBER == "07AD002") %>% 
   na.omit()
 
@@ -716,11 +716,11 @@ sens.slope(TS_07AD002)
 pettitt.test(TS_07AD002)
 
 #KC001
-stn_07KC001 <- df_ICE_final %>%
+stn_07KC001 <- df_ice_final %>%
   filter(STATION_NUMBER == "07KC001") %>% 
   na.omit()
 
-TS_07KC001  <- ts(stn_07KC001$Ice_coverage_wy, frequency = 1, start = c(1961,1))
+TS_07KC001  <- ts(stn_07KC001$ice_coverage_wy, frequency = 1, start = c(1961,1))
 
 MannKendall(TS_07KC001)
 sens.slope(TS_07KC001)
@@ -742,7 +742,7 @@ The ice cycle variables for these two stations are graphed below using the lm sm
 ```{r, fig-side, fig.show="hold", out.width="50%", echo = FALSE, message= FALSE}
 
 
-df_ICE_final %>%
+df_ice_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
 ggplot(aes(y= Freeze_DOY, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
   geom_line(linewidth = .75) + 
@@ -754,7 +754,7 @@ ggplot(aes(y= Freeze_DOY, x = factor(waterYear), group = STATION_NUMBER, colour 
 scale_x_discrete(breaks = seq(1960, 2020, 10)) +
 ylim(0, 150) +
 theme_classic() +
-ggtitle("Timing of Winter Ice Freeze") +
+ggtitle("Timing of Winter ice Freeze") +
   xlab(" ") +
   ylab("Day of the Water Year") +
   theme(plot.title = element_text(hjust = 0.5) ) +
@@ -763,7 +763,7 @@ ggtitle("Timing of Winter Ice Freeze") +
 
 
 
-df_ICE_final %>%
+df_ice_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
 ggplot(aes(y= Thaw_DOY, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
   geom_line(linewidth = .75) + 
@@ -787,7 +787,7 @@ ggtitle("Timing of Spring Thaw") +
   
 ```{r, figures-side, fig.show="hold", out.width="50%", echo = FALSE, message= FALSE}
 
-df_ICE_final %>%
+df_ice_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
 ggplot(aes(y= Freshet_Dayofyear, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
   geom_line(linewidth = .75) + 
@@ -807,9 +807,9 @@ ggtitle("Timing of Freshet") +
   theme(legend.position = "None")
 
 
-df_ICE_final %>%
+df_ice_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
-ggplot(aes(y= Ice_coverage_wy, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
+ggplot(aes(y= ice_coverage_wy, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
   geom_line(linewidth = .75) + 
     geom_smooth(method = lm, se = F) +
   #annotate(geom = "text", x = 43, y = 25, label = "Athabasca River, \n Athabasca", colour = "#E69F00") + #07BE001
@@ -819,7 +819,7 @@ ggplot(aes(y= Ice_coverage_wy, x = factor(waterYear), group = STATION_NUMBER, co
 scale_x_discrete(breaks = seq(1960, 2020, 10)) +
 ylim(0, 250) +
 theme_classic() +
-ggtitle("Days of Continuous Ice Coverage ") +
+ggtitle("Days of Continuous ice Coverage ") +
   ylab("Day of the Water Year") +
     xlab(" ") +
   theme(plot.title = element_text(hjust = 0.5) ) +
@@ -838,7 +838,7 @@ Conversely, the timing of freshet appears to be later in the year. This could be
 
 This document describes the workflow and methodology for using ice variable functions to assess trends in ice regimes for  rivers across Canada. 
 
-The Canadian River Ice Database Project previously calculated some of these ice cycle variables, however, they were only calculated for approximately 300 water stations, and only through 2015. These newly developed functions allow scientists to calculate present-day data, in addition to historical data, for any of the 1000+ water stations from the Water Survey of Canada.  
+The Canadian River ice Database Project previously calculated some of these ice cycle variables, however, they were only calculated for approximately 300 water stations, and only through 2015. These newly developed functions allow scientists to calculate present-day data, in addition to historical data, for any of the 1000+ water stations from the Water Survey of Canada.  
 
 The next step in this project is to create an accessible, open-source R package, and apply this analysis broadly for approximately 900+ reference stations within Canada. My hope is that scientists and watershed managers will be able to use this tool in conjunction with climatic data and models, to better assess and predict broad-scale watershed changes. 
 
@@ -850,4 +850,4 @@ Beltaos, S., & Bonsal, B. (2021). Climate change impacts on Peace River ice thic
 
 Beltaos, S. (2018). Frequency of ice-jam flooding of Peace-Athabasca Delta. Canadian Journal of Civil Engineering, 45(1), 71–75. https://doi.org/10.1139/cjce-2017-0434
 
-de Rham, L., Dibike, Y., Beltaos, S., Peters, D., Bonsal, B., & Prowse, T. (2020). A Canadian River Ice Database from the National Hydrometric Program Archives. Earth System Science Data, 12(3), 1835–1860. https://doi.org/10.5194/essd-12-1835-2020
+de Rham, L., Dibike, Y., Beltaos, S., Peters, D., Bonsal, B., & Prowse, T. (2020). A Canadian River ice Database from the National Hydrometric Program Archives. Earth System Science Data, 12(3), 1835–1860. https://doi.org/10.5194/essd-12-1835-2020

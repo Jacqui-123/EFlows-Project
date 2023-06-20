@@ -236,7 +236,7 @@ for (i in unique(IHA_closedwater_s$STATION_NUMBER)) {
 ```
 
 
-#7 Calculate Ice variables
+#7 Calculate ice variables
 -full dataset 
 ```{r}
 
@@ -262,31 +262,31 @@ output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
 
 #Deal with each output df having different lengths and not being able to combine them
 #find max and min years for each result df
-minyro1 <- min(output1$waterYear)
-maxyro1 <- max(output1$waterYear)
+min_yro1 <- min(output1$waterYear)
+max_yro1 <- max(output1$waterYear)
 
-minyro2 <- min(output2$waterYear)
-maxyro2 <- max(output2$waterYear)
+min_yro2 <- min(output2$waterYear)
+max_yro2 <- max(output2$waterYear)
 
-minyro3 <- min(output3$waterYear)
-maxyro3 <- max(output3$waterYear)
+min_yro3 <- min(output3$waterYear)
+max_yro3 <- max(output3$waterYear)
 
 #expand data set to include all years for all output dfs
 output1_ex <- output1 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro1:max_yro1) #fills NA for values for missing years 
 
 output2_ex <- output2 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro2:max_yro2) #fills NA for values for missing years 
 
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro3:max_yro3) #fills NA for values for missing years 
 
-df_ICE_full <- cbind(output1_ex, output2_ex, output3_ex)
+df_ice_full <- cbind(output1_ex, output2_ex, output3_ex)
 
-df_ICE_full_final <- df_ICE_full[!duplicated(as.list(df_ICE_full))] #removed duplicated columns (delete this if columns other than station number are the same)
+df_ice_full_final <- df_ice_full[!duplicated(as.list(df_ice_full))] #removed duplicated columns (delete this if columns other than station number are the same)
 
 
 ```
@@ -316,31 +316,31 @@ output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
 
 #Deal with each output df having different lengths and not being able to combine them
 #find max and min years for each result df
-minyro1 <- min(output1$waterYear)
-maxyro1 <- max(output1$waterYear)
+min_yro1 <- min(output1$waterYear)
+max_yro1 <- max(output1$waterYear)
 
-minyro2 <- min(output2$waterYear)
-maxyro2 <- max(output2$waterYear)
+min_yro2 <- min(output2$waterYear)
+max_yro2 <- max(output2$waterYear)
 
-minyro3 <- min(output3$waterYear)
-maxyro3 <- max(output3$waterYear)
+min_yro3 <- min(output3$waterYear)
+max_yro3 <- max(output3$waterYear)
 
 #expand data set to include all years for all output dfs
 output1_ex <- output1 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro1:max_yro1) #fills NA for values for missing years 
 
 output2_ex <- output2 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro2:max_yro2) #fills NA for values for missing years 
 
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro3:max_yro3) #fills NA for values for missing years 
 
-df_ICE_opwater <- cbind(output1_ex, output2_ex, output3_ex)
+df_ice_opwater <- cbind(output1_ex, output2_ex, output3_ex)
 
-df_ICE_opwater_final <- df_ICE_opwater[!duplicated(as.list(df_ICE_opwater))] #removed duplicated columns (delete this if columns other than station number are the same)
+df_ice_opwater_final <- df_ice_opwater[!duplicated(as.list(df_ice_opwater))] #removed duplicated columns (delete this if columns other than station number are the same)
 
 
 ```
@@ -370,54 +370,54 @@ output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
 
 #Deal with each output df having different lengths and not being able to combine them
 #find max and min years for each result df
-minyro1 <- min(output1$waterYear)
-maxyro1 <- max(output1$waterYear)
+min_yro1 <- min(output1$waterYear)
+max_yro1 <- max(output1$waterYear)
 
-minyro2 <- min(output2$waterYear)
-maxyro2 <- max(output2$waterYear)
+min_yro2 <- min(output2$waterYear)
+max_yro2 <- max(output2$waterYear)
 
-minyro3 <- min(output3$waterYear)
-maxyro3 <- max(output3$waterYear)
+min_yro3 <- min(output3$waterYear)
+max_yro3 <- max(output3$waterYear)
 
 #expand data set to include all years for all output dfs
 output1_ex <- output1 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro1:maxyro1) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro1:max_yro1) #fills NA for values for missing years 
 
 output2_ex <- output2 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro2:maxyro2) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro2:max_yro2) #fills NA for values for missing years 
 
 output3_ex <- output3 %>%
 mutate(waterYear = as.integer(waterYear)) %>%
-complete(STATION_NUMBER, waterYear = minyro3:maxyro3) #fills NA for values for missing years 
+complete(STATION_NUMBER, waterYear = min_yro3:max_yro3) #fills NA for values for missing years 
 
-df_ICE_clwater <- cbind(output1_ex, output2_ex, output3_ex)
+df_ice_clwater <- cbind(output1_ex, output2_ex, output3_ex)
 
-df_ICE_clwater_final <- df_ICE_clwater[!duplicated(as.list(df_ICE_clwater))] #removed duplicated columns (delete this if columns other than station number are the same)
+df_ice_clwater_final <- df_ice_clwater[!duplicated(as.list(df_ice_clwater))] #removed duplicated columns (delete this if columns other than station number are the same)
 
 ```
 
-#8 Export Ice variables to csv
+#8 Export ice variables to csv
 
 ```{r}
 
-#write a csv for each station number- full year, Ice variables
-for (i in unique(df_ICE_full_final$STATION_NUMBER)) {
-  dfsubset <- df_ICE_full_final[df_ICE_full_final$STATION_NUMBER == i,]
-  write.csv(dfsubset, paste0(i, "_fullyr_Icevar.csv"))
+#write a csv for each station number- full year, ice variables
+for (i in unique(df_ice_full_final$STATION_NUMBER)) {
+  dfsubset <- df_ice_full_final[df_ice_full_final$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_fullyr_icevar.csv"))
 }
 
-#write a csv for each station number- open water, Ice variables
-for (i in unique(df_ICE_opwater_final$STATION_NUMBER)) {
-  dfsubset <- df_ICE_opwater_final[df_ICE_opwater_final$STATION_NUMBER == i,]
-  write.csv(dfsubset, paste0(i, "_openwater_Icevar.csv"))
+#write a csv for each station number- open water, ice variables
+for (i in unique(df_ice_opwater_final$STATION_NUMBER)) {
+  dfsubset <- df_ice_opwater_final[df_ice_opwater_final$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_openwater_icevar.csv"))
 }
 
-#write a csv for each station number- closed water, Ice variables
-for (i in unique(df_ICE_clwater_final$STATION_NUMBER)) {
-  dfsubset <- df_ICE_clwater_final[df_ICE_clwater_final$STATION_NUMBER == i,]
-  write.csv(dfsubset, paste0(i, "_closedwater_Icevar.csv"))
+#write a csv for each station number- closed water, ice variables
+for (i in unique(df_ice_clwater_final$STATION_NUMBER)) {
+  dfsubset <- df_ice_clwater_final[df_ice_clwater_final$STATION_NUMBER == i,]
+  write.csv(dfsubset, paste0(i, "_closedwater_icevar.csv"))
 }
 
 
