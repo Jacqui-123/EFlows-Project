@@ -1,0 +1,228 @@
+Parks Canada Data Tidying and Quantile Calculations
+
+
+
+```{r}
+library(tidyverse)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+library(data.table)
+```
+
+#Bring in all files and name each one as the name of the csv file
+```{r}
+
+dir <-  "C:/Users/jacqu/EFlows-Project/PC_data" 
+
+f_names <- list.files(dir, pattern = '*.csv', full.names = TRUE)
+
+dfs <- lapply(f_names, read.csv)
+
+for (i in seq_along(dfs)) {
+  file_title <- tools::file_path_sans_ext(basename(f_names[i]))
+  assign(file_title, dfs[[i]])
+}
+
+rm(dfs)
+
+```
+
+#1) Quantiles for Athabasca and Peace River precipitation
+```{r}
+#make quantiles
+quants = c(0,.05,0.1,0.25,0.75,0.90,0.95,1.0)
+
+#calculate quantiles for Athabasca data and make into a df
+df <- quantile(Athabasca_Headwater_Summer_Precipitation$Total_Precipitation, probs = quants)
+ath_summer_precip <- data.frame(Athabasca_Summer_Precipitation = df) 
+ath_summer_precip <- rownames_to_column(ath_summer_precip, "Quantiles")
+
+df <- quantile(Athabasca_Headwater_Winter_Precipitation$Total_Precipitation, probs = quants)
+ath_winter_precip <- data.frame(Athabasca_Winter_Precipitation = df) 
+ath_winter_precip <- rownames_to_column(ath_winter_precip, "Quantiles")
+
+
+all_ath <- merge(ath_summer_precip, ath_winter_precip, by = "Quantiles" )
+  
+#calculate quantiles for Peace River data and make into a df
+df <- quantile(Peace_Headwater_Summer_Precipitation$Total_Precipitation, probs = quants)
+peace_summer_precip <- data.frame(Peace_Summer_Precipitation = df) 
+peace_summer_precip <- rownames_to_column(peace_summer_precip, "Quantiles")
+
+df <- quantile(Peace_Headwater_Winter_Precipitation$Total_Precipitation, probs = quants)
+peace_winter_precip <- data.frame(Peace_Winter_Precipitation = df) 
+peace_winter_precip <- rownames_to_column(peace_winter_precip, "Quantiles")
+
+all_peace <- merge(peace_summer_precip, peace_winter_precip, by = "Quantiles")
+
+all_precip_data <- merge(all_ath, all_peace)
+
+#write.csv(all_precip_data, "Precipitation_Quantiles_Peace_Athabasca.csv")
+
+```
+
+#2) Quantiles for Fish Contamination data (Hg)
+
+```{r}
+
+#loop to calculate Hg contamination per fish (fyi regardless of location, these were all combined)
+
+qlist <- list()
+for (i in unique(`fish-contaminants-data-20220614_Hg`$Species)) {
+  df_subset <- `fish-contaminants-data-20220614_Hg`[`fish-contaminants-data-20220614_Hg`$Species == i,]
+  qu <- quantile(df_subset$Hg..ng.g..wet.weight, probs = quants, na.rm = TRUE)
+  qlist[[i]] <- qu
+}
+
+df <- as.data.frame(qlist)
+
+fish_contam_df <- rownames_to_column(df, "Quantiles")
+
+#write.csv(fish_contam_df, "Fish_Contaminants_Quantiles.csv")
+```
+
+#3) Quantiles for Nutrient (phosphorous) Loading
+```{r}
+
+nutr_qu <- quantile(`Nutrient Loading_Peace-Athabasca_River_Basin_Long-term_Water_Quality_Monitoring`$ResultValue, probs = quants, na.rm = TRUE)
+
+nl <- data.frame(Mg_L_Phosph = nutr_qu) 
+nutrient_loading_quant <- rownames_to_column(nl, "Quantiles")
+
+#write.csv(nutrient_loading_quant, "Nutrient_Loading_Quantiles-Phosph.csv")
+
+```
+
+#4) Lake Athabasca Levels (station # 07MD001)
+```{r}
+
+#This was added to the Water Survey Data folder in the shared BBN drive, using BBN data script. 
+
+#corrections to WL made as per the GNSS report 
+
+```
+
+#5) Athabasca River - EPA Metals (Arsenic) 
+
+```{r}
+
+ar_qu <- quantile(`EPA Metals_Peace-Athabasca_River_Basin_Long-term_Water_Quality_Monitoring`$ResultValue, probs = quants, na.rm = TRUE)
+
+ar_lev <- data.frame(ug_L_Arsenic = ar_qu) 
+arsenic_levels_quant <- rownames_to_column(ar_lev, "Quantiles")
+
+#write.csv(arsenic_levels_quant, "EPA_Metals_Quantiles-Arsenic.csv")
+```
+
+#6) Muskrat Count Quantiles
+```{r}
+#note - "all_years" column was used, which looks like the count summaries of a transect each year at a different location
+
+musk_quant <- quantile(Msukrat_Count_2011to2021_JQ$All_years, probs = quants, na.rm = TRUE)
+
+m_qu <- data.frame(muskrat_counts = musk_quant) 
+muskrat_count_quant <- rownames_to_column(m_qu, "Quantiles")
+
+write.csv(muskrat_count_quant, "Muskrat_Counts_Allyrs_Quantiles.csv")
+
+```
+
+#7) Fort Chipewyan Climate Data - open, closed, full yr
+```{r}
+#note:
+#PC open water months for Peace and Athabasca precip data: 5,6,7,8,9 vs 
+# vs ECCC:4,5,6,7,8,9,10 for flow and WL data
+#PC closed water months for Peace and Athabasca precip data: 1,2,3,11,12 - ECCC used the same months for closed water data for flow and WL data 
+#basically PC didn't use april or oct
+
+
+
+#full year df, all months used
+ft_chip_fullyr <- `Fort_Chipewyan Climate Data` # %>%
+  #filter(year >1989) #can filter by year if needed
+
+#open water data (change numbers in filter argument to select diff months)
+ft_chip_ow <- `Fort_Chipewyan Climate Data` %>%
+  filter(month %in% c(4,5,6,7,8,9,10)) #months 4 and 10 can be left out # %>%
+  #filter(year >1989) #can filter by year if needed
+
+#closed water data (change numbers in filter argument to select diff months)
+ft_chip_cw <- `Fort_Chipewyan Climate Data` %>%
+  filter(month %in% c(11,12,1,2,3))# %>% #can filter by year if needed
+  #filter(year >1989)
+
+```
+
+#Fort Chipewyan Climate Data - quantiles
+
+```{r}
+
+ 
+#full year data
+
+#figure out which columns are numeric and only keep these
+numeric_cols <- sapply(ft_chip_fullyr, is.numeric)
+df_numeric <- ft_chip_fullyr[, numeric_cols]
+
+#probably don't need quantiles of station_id etc either
+df_numeric <- df_numeric %>%
+  select(-c(station_id, lat, lon, climate_id, WMO_id, year, month))
+
+#calcualte quantiles and make into a df
+quantiles_fullyr <- sapply(df_numeric, quantile, probs = quants, na.rm =TRUE)
+quantiles_fullyr <- as.data.frame(quantiles_fullyr) 
+ftchip_fullyr_quant <- rownames_to_column(quantiles_fullyr, "Quantiles")
+
+
+write.csv(ftchip_fullyr_quant, "Ft_Chip_Climate_Data_Fullyr_Quantiles.csv")
+
+
+```
+
+
+
+```{r}
+
+#open water data 
+
+#figure out which columns are numeric and only keep these
+numeric_cols <- sapply(ft_chip_ow, is.numeric)
+df_numeric <- ft_chip_ow[, numeric_cols]
+
+#probably don't need quantiles of station_id etc either
+df_numeric <- df_numeric %>%
+  select(-c(station_id, lat, lon, climate_id, WMO_id, year, month))
+
+#calcualte quantiles and make into a df
+quantiles_ow <- sapply(df_numeric, quantile, probs = quants, na.rm =TRUE)
+quantiles_ow <- as.data.frame(quantiles_ow) 
+ftchip_ow_quant <- rownames_to_column(quantiles_ow, "Quantiles")
+
+
+write.csv(ftchip_ow_quant, "Ft_Chip_Climate_NoAprOct_Quantiles.csv")
+
+
+```
+
+
+```{r}
+#closed water data 
+
+#figure out which columns are numeric and only keep these
+numeric_cols <- sapply(ft_chip_cw, is.numeric)
+df_numeric <- ft_chip_cw[, numeric_cols]
+
+#probably don't need quantiles of station_id etc either
+df_numeric <- df_numeric %>%
+  select(-c(station_id, lat, lon, climate_id, WMO_id, year, month))
+
+#calcualte quantiles and make into a df
+quantiles_cw <- sapply(df_numeric, quantile, probs = quants, na.rm =TRUE)
+quantiles_cw <- as.data.frame(quantiles_cw) 
+ftchip_cw_quant <- rownames_to_column(quantiles_cw, "Quantiles")
+
+
+write.csv(ftchip_cw_quant, "Ft_Chip_Climate_Data_ClosedWater_Quantiles.csv")
+
+```
