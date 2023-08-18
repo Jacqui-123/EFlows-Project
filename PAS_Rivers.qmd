@@ -2,12 +2,11 @@
 
 by Jacqui Levy
 
-#### For the first time, scientists can analyze a river’s ice cycle using both historical and current data from the Water Survey of Canada database. Newly developed functions are available and applicable at scale on any river in Canada with seasonal ice coverage. They grant scientists and watershed managers the tools to conduct reproducible research at scale, and enable data-driven water use decisions.
+#### Scientists can now analyze a river’s ice cycle using both historical and current data from the Water Survey of Canada database. Newly developed functions are available and applicable at scale on any river in Canada with seasonal ice coverage, and are demonstrated here. These functions grant scientists and watershed managers the tools to conduct reproducible research at scale, and enable data-driven water use decisions.
 
 #### The following is an analysis of river ice regimes within the Peace-Athabasca Delta (PAD), using these newly developed functions.
 
 Note: These functions are undergoing unit-testing and being developed into an open-source R package for public use. 
-
 
 ### What is an ice cycle and why is it important?
 
@@ -60,6 +59,8 @@ library(trend)
 library(forecast)
 library(Kendall)
 library(knitr)
+library(rmarkdown)
+
 
 #install.packages("IHA", repos="http://R-Forge.R-project.org")
 ```
@@ -451,8 +452,8 @@ stn_all_split <- split(stn_all, stn_all$STATION_NUMBER )
 stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
 stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
 
-rm(stn_all_split, stn_all_split_doy)
-View(stn_all_split)
+#rm(stn_all_split, stn_all_split_doy)
+#View(stn_all_split)
 
 ```
  
@@ -465,8 +466,7 @@ Use the functions built for this project to delete years with more than 14 conse
 
 stn_cln <- stn_all %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(waterYear > 1960) %>%
-  filter(waterYear != 2022)
+  filter(waterYear > 1970 & waterYear < 2021) 
 
 #delete years that have >14 days missing data using calc_rle function from functions I built for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
@@ -620,28 +620,28 @@ rename("One_Day_Max" = "1 Day Max",
 ```{r, echo=FALSE, include = FALSE}
 #Use calc_Mk to do a MK for all Stations for selected variables for IHA
 
-Reversals <- calc_MK(IHA_post_expand, parameter = Reversals, start = 1961) %>%
+Reversals <- calc_MK(IHA_post_expand, parameter = Reversals, start = 1970) %>%
   rename("Result_Reversals" = 'P_Value')
 
-One_Day_Min <- calc_MK(IHA_post_expand, parameter = One_Day_Min , start = 1961) %>% rename("Result_One_Day_Min" = 'P_Value')
+One_Day_Min <- calc_MK(IHA_post_expand, parameter = One_Day_Min , start = 1970) %>% rename("Result_One_Day_Min" = 'P_Value')
 
-One_Day_Max <-  calc_MK(IHA_post_expand, parameter = One_Day_Max , start = 1961) %>% rename("Result_1_Day_Max" = 'P_Value')
+One_Day_Max <-  calc_MK(IHA_post_expand, parameter = One_Day_Max , start = 1970) %>% rename("Result_1_Day_Max" = 'P_Value')
 
-Seven_Day_Min <- calc_MK(IHA_post_expand, parameter = Seven_Day_Min , start = 1961) %>% rename("Result_7_Day_Min" = 'P_Value')
+Seven_Day_Min <- calc_MK(IHA_post_expand, parameter = Seven_Day_Min , start = 1970) %>% rename("Result_7_Day_Min" = 'P_Value')
 
-Seven_Day_Max <-  calc_MK(IHA_post_expand, parameter = Seven_Day_Max , start = 1961) %>% rename("Result_7_Day_Max" = 'P_Value')
+Seven_Day_Max <-  calc_MK(IHA_post_expand, parameter = Seven_Day_Max , start = 1970) %>% rename("Result_7_Day_Max" = 'P_Value')
 
-Thirty_Day_Min <- calc_MK(IHA_post_expand, parameter = Thirty_Day_Min , start = 1961) %>% rename("Result_30_Day_Min" = 'P_Value')
+Thirty_Day_Min <- calc_MK(IHA_post_expand, parameter = Thirty_Day_Min , start = 1970) %>% rename("Result_30_Day_Min" = 'P_Value')
 
-Thirty_Day_Max <-  calc_MK(IHA_post_expand, parameter = Thirty_Day_Max , start = 1961) %>% rename("Result_30_Day_Max" = 'P_Value')
+Thirty_Day_Max <-  calc_MK(IHA_post_expand, parameter = Thirty_Day_Max , start = 1970) %>% rename("Result_30_Day_Max" = 'P_Value')
 
-High_pulse_number <-  calc_MK(IHA_post_expand, parameter = High_pulse_number , start = 1961) %>% rename("Result_High_pulse_number" = 'P_Value')
+High_pulse_number <-  calc_MK(IHA_post_expand, parameter = High_pulse_number , start = 1970) %>% rename("Result_High_pulse_number" = 'P_Value')
 
-Low_pulse_number <-  calc_MK(IHA_post_expand, parameter = Low_pulse_number , start = 1961) %>% rename("Result_Low_pulse_number" = 'P_Value')
+Low_pulse_number <-  calc_MK(IHA_post_expand, parameter = Low_pulse_number , start = 1970) %>% rename("Result_Low_pulse_number" = 'P_Value')
 
-High_pulse_length <-  calc_MK(IHA_post_expand, parameter = High_pulse_length , start = 1961) %>% rename("Result_High_pulse_length" = 'P_Value')
+High_pulse_length <-  calc_MK(IHA_post_expand, parameter = High_pulse_length , start = 1970) %>% rename("Result_High_pulse_length" = 'P_Value')
 
-Low_pulse_length <-  calc_MK(IHA_post_expand, parameter = Low_pulse_length , start = 1961) %>% rename("Result_Low_pulse_length" = 'P_Value')
+Low_pulse_length <-  calc_MK(IHA_post_expand, parameter = Low_pulse_length , start = 1970) %>% rename("Result_Low_pulse_length" = 'P_Value')
 
 result_MK_IHA <- cbind(Reversals, One_Day_Min, One_Day_Max, Seven_Day_Min, Seven_Day_Max, Thirty_Day_Min, Thirty_Day_Max, High_pulse_number, Low_pulse_number, High_pulse_length, Low_pulse_length )
 
@@ -653,16 +653,16 @@ View(result_MK_IHA)
 
  
 ```{r, echo = FALSE, include = FALSE}
-DY <- calc_MK(df_ice_final, parameter = Freshet_Dayofyear, start = 1961) %>%
+DY <- calc_MK(df_ice_final, parameter = Freshet_Dayofyear, start = 1970) %>%
   rename("Freshet_Onset" = 'P_Value' )
 
-icecover <- calc_MK(df_ice_final, parameter = ice_coverage_wy, start = 1961)%>%
+icecover <- calc_MK(df_ice_final, parameter = ice_coverage_wy, start = 1970)%>%
   rename("ice_cover" = 'P_Value' )
 
-frdoy <- calc_MK(df_ice_final, parameter = Freeze_DOY, start = 1961) %>%
+frdoy <- calc_MK(df_ice_final, parameter = Freeze_DOY, start = 1970) %>%
   rename("Freeze_doy" = 'P_Value' )
 
-thawdoy <- calc_MK(df_ice_final, parameter = Thaw_DOY, start = 1961)%>%
+thawdoy <- calc_MK(df_ice_final, parameter = Thaw_DOY, start = 1970)%>%
   rename("Thaw_doy" = 'P_Value' )
 
 result <- cbind(DY, icecover, frdoy, thawdoy)
@@ -687,7 +687,7 @@ stn_07HA001 <-  df_ice_final %>%
   filter(STATION_NUMBER == "07HA001") %>% 
   na.omit()
 
-TS_07HA001  <- ts(stn_07HA001$Freshet_Dayofyear, frequency = 1, start = c(1961,1))
+TS_07HA001  <- ts(stn_07HA001$Freshet_Dayofyear, frequency = 1, start = c(1970,1))
 
 MannKendall(TS_07HA001)
 sens.slope(TS_07HA001)
@@ -698,7 +698,7 @@ stn_07AA002 <- df_ice_final %>%
     filter(STATION_NUMBER == "07AA002") %>%
   na.omit()
 
-TS_07AA002  <- ts(stn_07AA002$ice_coverage_wy, frequency = 1, start = c(1971,1))
+TS_07AA002  <- ts(stn_07AA002$ice_coverage_wy, frequency = 1, start = c(1970,1))
 MannKendall(TS_07AA002)
 sens.slope(TS_07AA002)
 pettitt.test(TS_07AA002)
@@ -708,7 +708,7 @@ stn_07AD002 <- df_ice_final %>%
   filter(STATION_NUMBER == "07AD002") %>% 
   na.omit()
 
-TS_07AD002  <- ts(stn_07AD002$Freshet_Dayofyear, frequency = 1, start = c(1962,1))
+TS_07AD002  <- ts(stn_07AD002$Freshet_Dayofyear, frequency = 1, start = c(1970,1))
 
 MannKendall(TS_07AD002)
 sens.slope(TS_07AD002)
@@ -719,7 +719,7 @@ stn_07KC001 <- df_ice_final %>%
   filter(STATION_NUMBER == "07KC001") %>% 
   na.omit()
 
-TS_07KC001  <- ts(stn_07KC001$ice_coverage_wy, frequency = 1, start = c(1961,1))
+TS_07KC001  <- ts(stn_07KC001$ice_coverage_wy, frequency = 1, start = c(1970,1))
 
 MannKendall(TS_07KC001)
 sens.slope(TS_07KC001)
@@ -750,7 +750,7 @@ ggplot(aes(y= Freeze_DOY, x = factor(waterYear), group = STATION_NUMBER, colour 
  #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
   # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002
   #geom_hline(yintercept = 0, linetype = "dotted") +
-scale_x_discrete(breaks = seq(1960, 2020, 10)) +
+scale_x_discrete(breaks = seq(1970, 2020, 10)) +
 ylim(0, 150) +
 theme_classic() +
 ggtitle("Timing of Winter ice Freeze") +
@@ -771,7 +771,7 @@ ggplot(aes(y= Thaw_DOY, x = factor(waterYear), group = STATION_NUMBER, colour = 
  #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
   # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002
   #geom_hline(yintercept = 0, linetype = "dotted") +
-scale_x_discrete(breaks = seq(1960, 2020, 10)) +
+scale_x_discrete(breaks = seq(1970, 2020, 10)) +
 ylim(115, 250) +
 theme_classic() +
 ggtitle("Timing of Spring Thaw") +
@@ -795,7 +795,7 @@ ggplot(aes(y= Freshet_Dayofyear, x = factor(waterYear), group = STATION_NUMBER, 
  #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
   # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002 
   #geom_hline(yintercept = 0, linetype = "dotted") +
-scale_x_discrete(breaks = seq(1960, 2020, 10)) +
+scale_x_discrete(breaks = seq(1970, 2020, 10)) +
 ylim(100, 275) +
 theme_classic() +
 ggtitle("Timing of Freshet") +
@@ -815,7 +815,7 @@ ggplot(aes(y= ice_coverage_wy, x = factor(waterYear), group = STATION_NUMBER, co
  #annotate(geom = "text", x = 44, y = 68, label = "Driftwood River, \n AB", colour = "#56B4E9") +    #07BK007
   # annotate(geom = "text", x = 43, y = 130, label = "Peace River, \n Taylor", colour = "#999999") + #07FD002
   #geom_hline(yintercept = 0, linetype = "dotted") +
-scale_x_discrete(breaks = seq(1960, 2020, 10)) +
+scale_x_discrete(breaks = seq(1970, 2020, 10)) +
 ylim(0, 250) +
 theme_classic() +
 ggtitle("Days of Continuous ice Coverage ") +
