@@ -47,8 +47,7 @@ Source code for this project with complete tidying workflow: https://github.com/
 The following is a technical roadmap of how to use these new functions to calculate ice cycle variables for multiple stations and years. This method is scalable and works for multiple stations. 
 
 
-```{r, echo=FALSE, include = FALSE}
-
+```{r, echo=FALSE, include = FALSE, warning= FALSE}
 library(IHA)
 library(tidyverse)
 library(tidyhydat)
@@ -57,12 +56,12 @@ library(lubridate)
 library(ggplot2)
 library(dataRetrieval)
 library(timetk)
+library(trend)
 library(forecast)
 library(Kendall)
-library(trend)
-library(outliers)
 library(knitr)
 
+#install.packages("IHA", repos="http://R-Forge.R-project.org")
 ```
 
 
