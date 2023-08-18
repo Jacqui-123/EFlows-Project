@@ -2,7 +2,7 @@
 title: "Analysis of ice Cycle Variables for Northern Rivers in Canada: Peace, Athabasca, and Slave"
 output:
   quarto::html_document:
-    figure_caption: false
+    output_dir: docs
 editor: visual
 ---
 
