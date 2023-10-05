@@ -2,18 +2,19 @@
 
 by Jacqui Levy
 
-#### For the first time, scientists can analyze a river’s ice cycle using both historical and current data from the Water Survey of Canada database. Newly developed functions are available and applicable at scale on any river in Canada with seasonal ice coverage. They grant scientists and watershed managers the tools to conduct reproducible research at scale, and enable data-driven water use decisions.
+#### This project describes the calculation of a river’s ice cycle using both historical and current data from the Water Survey of Canada database. These functions and pipelines are applicable at scale on any of the 900+ Canadian water stations.
 
-#### The following is an analysis of river ice regimes within the Peace-Athabasca Delta (PAD), using these newly developed functions.
+#### The long-term goal of this project is to make data on ice conditions and changing river regimes publicly available and accessible, in order to connect policy makers and community members with the information they need to make informed decisions about their waterways. These workflows also enable scientists to conduct regional and reproducible analyses of changes in river ice, facilitating data-driven decision making when it comes to climate change adaptation.
 
-Note: These functions are undergoing unit-testing and being developed into an open-source R package for public use. 
+#### The following is an example of how to analyze and visualize river ice regimes within the Peace-Athabasca Delta (PAD), using these newly developed workflows and pipelines.
 
+Note: The functions for this project are being developed into an open-source R package for public use. Future projects involve further scaling these data pipelines into an open-source database that links to a visualization platform.
 
 ### What is an ice cycle and why is it important?
 
-River ice is a major component of the hydrological cycle for northern rivers like the Peace, Slave, and Athabasca Rivers. These rivers experience thick ice coverage every winter, and a predictable seasonal spring-break up season called freshet. This ice-break up is linked to key ecological processes, such as overland flooding. This flooding replenishes nearby wetlands with water and sustains rich habitat for a biodiverse ecosystem.
+River ice is a major component of the hydrological cycle for northern rivers like the Peace, Slave, and Athabasca Rivers. These rivers experience thick ice coverage every winter, and a predictable seasonal spring-break up season called freshet. This ice-break up causes ice jams and flooding, which replenishes nearby wetlands with water and sustains rich habitat for a biodiverse ecosystem.
 
-Climate change is causing broad spatial and temporal shifts in river ice regimes across Canada, causing harmful downstream impacts to ecosystems and wildlife. Understanding how river ice cycles are shifting is key to building adaptive watershed management plans in a changing environment.  
+Climate change is causing shifts in the timing of river ice break-up, which has far-reaching consequences for the wildlife whose life cycles depend on this seasonal ice-break up, as well and people whose lives depend on these northern rivers. Understanding how river ice cycles are shifting is key in order to build adaptive watershed management plans in a changing environment.  
 
 ### What statistical analysis was used and why? 
 
@@ -38,7 +39,7 @@ A set of functions were developed to calculate these ice variables: https://gith
 Open-source hydrological data from the Water Survey of Canada: 
 https://www.canada.ca/en/environment-climate-change/services/water-overview/quantity/monitoring/survey.html 
 
-Open-sourced R packages: tidyverse, tidyhydat, zoo, lubridate, ggplot, MannKendall, dataRetrieval 
+Open-sourced R packages: tidyverse, tidyhydat, zoo, lubridate, ggplot, plotly, MannKendall, dataRetrieval 
 
 Source code for this project with complete tidying workflow: https://github.com/Jacqui-123/EFlows-Project/blob/main/6_PAS_Rivers.Rmd 
 
@@ -60,6 +61,8 @@ library(trend)
 library(forecast)
 library(Kendall)
 library(knitr)
+library(plotly)
+library(manipulateWidget)
 
 #install.packages("IHA", repos="http://R-Forge.R-project.org")
 ```
@@ -427,7 +430,7 @@ library(dataRetrieval)
 
 ```
 
-#### 1) First, retrieve water flow data from the Water Survey of Canada, and add a column for "water year" and a column for "day of the water year".
+#### 1) First, retrieve water flow data from the Water Survey of Canada for 8 stations over 60+ years. Add a column for "water year" and a column for "day of the water year".
 
 A "water year" or hydrological year, is measured from October 1-September 30th, and measures the cycle of a watershed from its lowest baseflow point. 
 
@@ -452,7 +455,7 @@ stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
 stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
 
 rm(stn_all_split, stn_all_split_doy)
-View(stn_all_split)
+#View(stn_all_split)
 
 ```
  
@@ -496,7 +499,7 @@ lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 #Combine all IHA outputs into one df (unnlist the dfs)
 #make a "watershed" column for graphing later
 IHA <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
-View(IHA)
+#View(IHA)
 
 #write.csv(IHA, "IHAlongterm.csv")
 ```
@@ -569,7 +572,7 @@ df_ice <- cbind(output1_ex, output2_ex, output3_ex)
 
 df_ice_final <- df_ice[!duplicated(as.list(df_ice))] #removed duplicated columns
 
-View(df_ice_final)
+#View(df_ice_final)
 
 #write.csv(df_ice_final, "ice.csv")
 
@@ -645,7 +648,7 @@ Low_pulse_length <-  calc_MK(IHA_post_expand, parameter = Low_pulse_length , sta
 
 result_MK_IHA <- cbind(Reversals, One_Day_Min, One_Day_Max, Seven_Day_Min, Seven_Day_Max, Thirty_Day_Min, Thirty_Day_Max, High_pulse_number, Low_pulse_number, High_pulse_length, Low_pulse_length )
 
-View(result_MK_IHA)
+#View(result_MK_IHA)
 
 #write.csv(result_MK_IHA, "IHAresult.csv")
 
@@ -668,7 +671,7 @@ thawdoy <- calc_MK(df_ice_final, parameter = Thaw_DOY, start = 1961)%>%
 result <- cbind(DY, icecover, frdoy, thawdoy)
 MK_result_final <- result[!duplicated(as.list(result))] #removed duplicated columns
 MK_result_final <- MK_result_final %>% mutate_if(is.numeric, ~round(., 3)) #round 
-View(MK_result_final)
+#View(MK_result_final)
 
 ```
 
@@ -733,15 +736,15 @@ pettitt.test(TS_07KC001)
 
 Most stations had non-significant values for these ice variables, and the Mann-Kendall test did not detect a monotonic trend in ice coverage for most variables. 
 
-This does not mean that there have been no changes in ice regimes, but only that this test did not detect an effect at the selected level. More precise analysis of across the full watershed are needed, and will be forthcoming.
+This does not mean that there have been no changes in ice regimes, but only that this test did not detect an effect at the selected level.
 
 It is notable from the results table that the test detected a trend for two stations (07HA001 & 07KC001) along the Peace River, across several of the ice variables. 
 
 The ice cycle variables for these two stations are graphed below using the lm smooth method to fit a linear trend to the data.
-```{r, fig-side, fig.show="hold", out.width="50%", echo = FALSE, message= FALSE}
+```{r, echo = FALSE, message= FALSE}
+#fig-side, fig.show="hold", out.width="50%", 
 
-
-df_ice_final %>%
+p1 <- df_ice_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
 ggplot(aes(y= Freeze_DOY, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
   geom_line(linewidth = .75) + 
@@ -761,8 +764,7 @@ ggtitle("Timing of Winter ice Freeze") +
   theme(legend.position = "None")
 
 
-
-df_ice_final %>%
+p2 <- df_ice_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
 ggplot(aes(y= Thaw_DOY, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
   geom_line(linewidth = .75) + 
@@ -781,12 +783,18 @@ ggtitle("Timing of Spring Thaw") +
 #scale_colour_manual(values = pal)  +
   theme(legend.position = "None")
 
+m <- ggplotly(p1) %>% hide_legend() # %>% layout(autosize = F, width = 400, height = 500)
+n <- ggplotly(p2) %>% hide_legend()# %>% layout(autosize = F, width = 400, height = 500)
+
+
+manipulateWidget::combineWidgets(m, n, nrow = 1)
+
 
 ```
   
-```{r, figures-side, fig.show="hold", out.width="50%", echo = FALSE, message= FALSE}
+```{r, echo = FALSE, message= FALSE}
 
-df_ice_final %>%
+p3 <- df_ice_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
 ggplot(aes(y= Freshet_Dayofyear, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
   geom_line(linewidth = .75) + 
@@ -806,7 +814,7 @@ ggtitle("Timing of Freshet") +
   theme(legend.position = "None")
 
 
-df_ice_final %>%
+p4 <- df_ice_final %>%
 filter(Station_Number == "07HA001" | Station_Number == "07KC001") %>%
 ggplot(aes(y= ice_coverage_wy, x = factor(waterYear), group = STATION_NUMBER, colour = STATION_NUMBER)) +
   geom_line(linewidth = .75) + 
@@ -824,6 +832,15 @@ ggtitle("Days of Continuous ice Coverage ") +
   theme(plot.title = element_text(hjust = 0.5) ) +
 #scale_colour_manual(values = pal)  +
   theme(legend.position = "None")
+
+
+q <- ggplotly(p3) %>% hide_legend() # %>% layout(autosize = F, width = 400, height = 500)
+r <- ggplotly(p4) %>% hide_legend()# %>% layout(autosize = F, width = 400, height = 500)
+
+
+manipulateWidget::combineWidgets(q, r, nrow = 1)
+
+
 ```
 
 
@@ -837,7 +854,7 @@ Conversely, the timing of freshet appears to be later in the year. This could be
 
 This document describes the workflow and methodology for using ice variable functions to assess trends in ice regimes for  rivers across Canada. 
 
-The Canadian River ice Database Project previously calculated some of these ice cycle variables, however, they were only calculated for approximately 300 water stations, and only through 2015. These newly developed functions allow scientists to calculate present-day data, in addition to historical data, for any of the 1000+ water stations from the Water Survey of Canada.  
+The Canadian River ice Database Project previously calculated some of these ice cycle variables, however, they were only calculated for approximately 300 water stations, and only through 2015. These newly developed functions allow scientists to calculate present-day data, in addition to historical data, for any of the 1000+ water stations from the Water Survey of Canada.
 
 The next step in this project is to create an accessible, open-source R package, and apply this analysis broadly for approximately 900+ reference stations within Canada. My hope is that scientists and watershed managers will be able to use this tool in conjunction with climatic data and models, to better assess and predict broad-scale watershed changes. 
 
