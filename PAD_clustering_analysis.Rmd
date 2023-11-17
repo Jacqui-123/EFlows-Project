@@ -1,0 +1,634 @@
+## Clustering Analysis for River Types within the PAD System 
+
+#### This project describes......
+
+
+```{r, echo=FALSE, message = FALSE, warning= FALSE}
+library(IHA)
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(ggplot2)
+library(dataRetrieval)
+library(knitr)
+library(plotly)
+library(manipulateWidget)
+library(cluster)    # clustering algorithms
+library(factoextra) # clustering visualization
+library(dendextend) #for comparing two dendrograms
+
+#install.packages("IHA", repos="http://R-Forge.R-project.org")
+```
+
+
+```{r, echo = FALSE}
+library(tidyverse)
+library(tidyhydat)
+library(zoo)
+library(lubridate)
+library(caTools)
+library(dataRetrieval)
+
+# Various functions for calculating: IHA, Percent Change, and ice Variables 
+# Created by Jacqui Levy
+
+
+#######PART 1 - MISC FUNCTIONS#####
+
+# MISSING YEARS FUNCTION
+
+  calc_missing_yrs <- function(df, Date) {
+  #Find out if there are missing years in the data set. Will return "false" if there are no missing years, or a df of missing years. 
+  #Date should be in yyyy-mm-dd, col title is "Date"
+  #cal year not wy 
+  years <- format(df$Date, "%Y")
+  unique_years <- unique(years)
+  all_years <- seq(min(unique_years), max(unique_years), by = 1)
+  missing_years <- setdiff(all_years, unique_years)
+  
+  View(missing_years) #should be zero
+  any(missing_years) #says if there is anything in the list
+  print(missing_years)
+  }
+  
+  
+#RLE FUNCTION
+  
+
+  calc_rle <- function(df) {
+    #function to remove years that have > 14 consecutive NA values (ie 14 days in a row with no data) 
+    #and return the original df, without the offending years
+    na_rows <- with(rle(is.na({{df}}$Value)), rep(values & lengths > 14, lengths))
+    yearstoremove <- unique({{df}}$waterYear[na_rows])
+    output <- {{df}}[!{{df}}$waterYear %in% yearstoremove, ]
+    return(output)
+  }
+  
+  
+#DAY OF THE WATER YEAR FUNCTION
+  #Date should be in yyyy-mm-dd
+
+  calc_day_of_wyear <- function(data){
+    #function sequences by number of days in each water year
+    
+    df <- data.frame(waterYear = character(), sequence = character())
+    
+    for (i in unique({{data}}$waterYear)){
+      df_subset <- {{data}}[{{data}}$waterYear == i,]
+      days <- seq(1:nrow(df_subset))
+      temp_df <- data.frame(waterYear = i, day_of_year = days)
+      df <- rbind(df, temp_df)
+    }
+    df2 <- cbind(df, {{data}}) 
+    df3 <- df2[, !duplicated(colnames(df2))]
+    
+    return(df3)
+  }
+
+
+#######PART 2 - IHA VARIABLES#####
+  
+
+#IHA FUNCTION
+#Date must be in dd-mm-yyyy format - use mutate(Date = format(Date,"%d-%m-%Y"))
+
+  
+  calc_IHA <- function(data){
+    
+    flow_data <-  {{data}} %>%
+      select(Date, Value)
+    
+    flow_data <- zoo(flow_data$Value, order.by = as.Date(as.character(flow_data$Date), format = "%d-%m-%Y"))
+    ## Run IHA analyses
+    group1_output <- group1(flow_data, year = "water", FUN = median)
+    group2_output <- group2(flow_data, year = "water", mimic.tnc = TRUE)
+    group3_output <- group3(flow_data, year = "water", mimic.tnc = FALSE)
+    group4_output <- group4(flow_data, year = "water")
+    group5_output <- group5(flow_data, year = "water")
+    
+    ## Convert outputs
+    group1_output <- as.data.frame(group1_output)
+    group2_output <- group2_output[,-1]
+    group3_output <- as.data.frame(group3_output)
+    group4_output <- as.data.frame(group4_output)
+    group5_output <- as.data.frame(group5_output)
+    
+    #to deal with one less row for group4 variables 
+    if (nrow(group4_output) < nrow(group1_output)) {
+      group4_output <- group4_output %>%
+        add_row()
+    }
+    ## Create output dataframe 
+    IHA_output <- bind_cols(list(group1_output, group2_output, group3_output, group4_output, group5_output))
+    
+    #make the years the column names instead of the rownames
+    IHA_output <- tibble::rownames_to_column(IHA_output, "Year") 
+    
+  }
+
+  
+#######PART 3 - ice VARIABLES#####
+  
+#Used to calculate the freeze-up dates, ice break-up dates, and continuous ice coverage
+#df must have col names: "day_of_year", "Value", "Symbol", "Date", "waterYear"
+#Date must be in yyyy-mm-dd format for all ice variables functions
+
+#GROUP 1 FUNCTION - ice COVER 
+  
+  Group_1_ice_cover <- function(data) {
+    #function returns a df for the length of ice coverage, per water year
+    #works with one station, multiple years
+    #for multiple stations, split-apply-combine station
+    lst <- list()
+    
+    for (i in unique({{data}}$waterYear)) {
+      
+      length_B_date  <- max(rle({{data}}$Symbol[{{data}}$waterYear == i] == "B")[[1]]) 
+      #append each value to a list
+      length_B_date <- length_B_date - 1
+      lst[[i]] <- length_B_date
+    }
+    
+    ice_coverage_wy <- data.frame(waterYear = names(lst), ice_coverage_wy = unlist(lst))
+    rownames(ice_coverage_wy) <-NULL
+   
+    return(ice_coverage_wy)
+    
+  }
+  
+
+#GROUP 2 FUNCTION - FREEZE AND THAW DATES
+  
+  Group_2_freeze_thaw <- function(data) {
+    #This function calculates the freeze and thaw dates and their flow values, using the longest consecutive run of "B" Symbols in the df
+    
+    start_date_lst <- list()
+    end_date_lst <- list()
+    start_flow_lst <- list()
+    end_flow_lst <- list()
+    start_doy_lst <- list()
+    end_doy_lst <- list()
+    
+    for (i in unique({{data}}$waterYear)){
+      
+      df_subset <- {{data}}[{{data}}$waterYear == i,]
+      
+      #calc rle for B symbol
+      rle_m = rle(df_subset$Symbol == "B")
+      
+      #find index for max run of B symbols
+      max_run_index <- which.max(rle_m$lengths)
+      
+      #find end start and index of max run of B symbols
+      end <- cumsum(rle_m$lengths)[max_run_index]
+      start <- end - rle_m$lengths[max_run_index] +1
+      
+      #find date at end, start index of the max run 
+      date_end = df_subset$Date[end]
+      date_start = df_subset$Date[start]
+      
+      #find flow at end, start index
+      flow_end = df_subset$Value[end]
+      flow_start = df_subset$Value[start]
+      
+      #find doy at end, start index
+      doy_end = df_subset$day_of_year[end]
+      doy_start = df_subset$day_of_year[start]
+      
+      #append dates to the list
+      start_date_lst[[i]] <- date_start
+      end_date_lst[[i]] <- date_end
+      
+      #append flows to the list
+      start_flow_lst[[i]] <- flow_start
+      end_flow_lst[[i]] <- flow_end
+      
+      #append doy to the list
+      start_doy_lst[[i]] <- doy_start
+      end_doy_lst[[i]] <- doy_end
+      
+    }
+    
+    Freeze_Date <- as.Date(unlist(start_date_lst))
+    Thaw_Date <- as.Date(unlist(end_date_lst))
+    Flow_Freeze <- unlist(start_flow_lst)
+    Flow_Thaw <- unlist(end_flow_lst)
+    Freeze_DOY <-unlist(start_doy_lst)
+    Thaw_DOY <- unlist(end_doy_lst)
+    
+    df <- cbind.data.frame(Freeze_Date,Freeze_DOY,Flow_Freeze,Thaw_Date,Thaw_DOY, Flow_Thaw)
+    
+    ice_coverage_dates_flow <- rownames_to_column(df, "waterYear")
+    return(ice_coverage_dates_flow)
+    
+  }
+  
+  
+#GROUP 3 FUNCTION - ONSET OF FRESHET
+  
+  
+  Group_3_freshet <- function(data) {
+    index <- 0
+    f_index <- 16
+    date_lst <- list()
+    flow_lst <- list()
+    stn_nu <- list()
+    doy_lst <- list()
+    
+    for (i in unique({{data}}$waterYear)) { #first loop
+      #subset data by year, resetting at each year
+      index = 0  
+      f_index = 16 
+      df_subset <- {{data}}[{{data}}$waterYear == i,]
+      df_subset <- df_subset %>%
+        #data tidying:delete dates before Feb 12, so rolling mean calc starts on March 1
+        mutate(Date = as.Date(Date)) %>%
+        #filter(month(Date) %in% c(3,4,5,6))
+        mutate(new_col = format(Date,"%m-%d")) %>%
+        filter(month(Date) >= 2 & month(Date) < 7) %>% 
+        filter(!(new_col %in% c("02-01", "02-02", "02-03", "02-04", "02-05", "02-06", "02-07", "02-08", "02-09", "02-10", "02-11")))
+      
+      #calc rolling 16 day mean
+      rollmn <- rollmean(df_subset$Value, k = 16, width = 16)
+      #rollmn <- as.data.frame(rollmn)
+      
+      for (j in rollmn) { #second loop
+        #increment index
+        index = index + 1
+        f_index = f_index + 1
+        
+        #find rolling mean value at the index and multiply by 1.5
+        rollmnvalue <- rollmn[index] #roll mean = 0.81
+        rollmnvalue1.5 <- rollmnvalue*1.5 #1.215
+        
+        #get the flow value at that index
+        flowvalue <- df_subset$Value[f_index] #flow = 0.654
+        
+        if (flowvalue > rollmnvalue1.5 & f_index < 123 ) { #third loop
+          #append date, flow value to a list using the index numbers
+          dt <- df_subset$Date[f_index]
+          fl <- df_subset$Value[f_index]
+          st <- df_subset$STATION_NUMBER[f_index]
+          doy <- df_subset$day_of_year[f_index]
+          # print(dt) 
+          #  print(fl)
+          #  print("end")
+          date_lst[[i]] <- dt 
+          flow_lst[[i]] <- fl 
+          stn_nu[[i]] <- st
+          doy_lst[[i]] <- doy
+          Freshet_Date <- as.Date(unlist(date_lst))
+          Freshet_Flow <- unlist(flow_lst)
+          Station_Number <- unlist(stn_nu)
+          Freshet_Dayofyear <- unlist(doy_lst)
+          df <- cbind.data.frame(Station_Number, Freshet_Date, Freshet_Dayofyear, Freshet_Flow)
+          break
+        }
+        
+      }
+      
+    }
+      Freshet_dates_flow <- rownames_to_column(df, "waterYear")
+      return(Freshet_dates_flow)
+  }  
+  
+  
+```
+
+#### 1) Tidy stations using pipelines, functions and methods shown previously 
+
+#### See https://rpubs.com/Jacqui-123/1093734 for a small-scale example of pipelines, functions and tidying workflows 
+```{r, echo = FALSE}
+
+#extract stations from the Water Survey of Canada database
+
+stn_all <- tidyhydat::hy_daily_flows(station_number = c('07DD001','07DD002','07DD003','07DD004','07DD005','07DD006','07DD007','07DD008','07DD009',
+'07DD010','07DD011','07HF001','07JD001','07JD002','07JD003','07JD004','07JF002','07JF003','07JF004','07JF005','07KA002','07KC001','07KC003','07KC004','07KC005','07KE001','07KF001','07KF002','07KF003','07KF004','07KF005','07KF006','07KF007','07KF008','07KF010','07KF013','07KF014','07KF015','07NA001','07NA002','07NA003','07NA004','07NA005','07NA007','07NA008','07NB001','07NB002','07NB003','07NB004','07NB005','07NB006','07NB007','07NB008','07NC001','07NC002','07NC003','07NC004','07NC005') ) 
+                                       
+```
+
+
+```{r, echo = FALSE}
+stn_all <- stn_all %>%
+  group_by(STATION_NUMBER) %>%
+#make a complete set of days for each year 
+tidyr::complete(Date = seq.Date(as.Date("1985/10/1"), as.Date("2022/09/30"), by="day"))
+
+#add water year
+stn_all <- addWaterYear(stn_all) %>%
+mutate(waterYear = as.character(waterYear))
+
+#add day of the year from "Eflows_FUNCTIONS.R" function 
+#note: this is the day of the water year, not day of the year - oct 1 = day 1 
+stn_all_split <- split(stn_all, stn_all$STATION_NUMBER )
+stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
+stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
+
+rm(stn_all_split, stn_all_split_doy)
+#View(stn_all_split)
+
+```
+
+
+```{r, echo = FALSE}
+
+#add a column of weeks of the year to later group by 
+stn_all <- stn_all %>% 
+  group_by(STATION_NUMBER, waterYear) %>%
+  mutate(weeks = rep(1:(ceiling(n()/7)), each = 7)[1:n()]) %>%  #ceiling always rounds up
+#make a new column, and mutate from 1 to the result of ceiling(n()/7), ie 1:52
+  mutate(weeks = if_else(weeks == 53, 52, weeks)) #make the one day week 53 be week 52. Issue is that then there are 9 days in week 52 in leap years. Could just omit feb 29th completely?
+
+#this works for calendar year but not for water year
+#test$week_num <- strftime(test$Date, format = "%V")
+
+
+```
+
+```{r, echo = FALSE}
+#calculate discharge - get gross discharge for all stations and join to stn_all
+
+stn_drainage <- tidyhydat::hy_stations(station_number = c('07DD001','07DD002','07DD003','07DD004','07DD005','07DD006','07DD007','07DD008','07DD009',
+'07DD010','07DD011','07HF001','07JD001','07JD002','07JD003','07JD004','07JF002','07JF003','07JF004','07JF005','07KA002','07KC001','07KC003','07KC004','07KC005','07KE001','07KF001','07KF002','07KF003','07KF004','07KF005','07KF006','07KF007','07KF008','07KF010','07KF013','07KF014','07KF015','07NA001','07NA002','07NA003','07NA004','07NA005','07NA007','07NA008','07NB001','07NB002','07NB003','07NB004','07NB005','07NB006','07NB007','07NB008','07NC001','07NC002','07NC003','07NC004','07NC005') ) 
+
+#join
+stn_all <- left_join(stn_all, stn_drainage, by = "STATION_NUMBER")  %>% select(-c(ends_with(".x")))
+
+#calculate total discharge 
+stn_all <- stn_all %>% 
+  mutate(runoff = ((Value * 3600 * 24) / (DRAINAGE_AREA_GROSS.y * 1000000) ))
+
+```
+
+
+```{r, echo = FALSE}
+
+#Use the functions built for this project to delete years with more than 14 consecutive days of missing data, and the tidyverse package to estimate missing observations using the last existing observation.
+
+#Year round data first
+stn_cln <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+   filter(waterYear >= 1999) %>% 
+  filter(waterYear < 2021) #%>%
+  #filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) #add this in to get seasonal stations only, remove for year round data 
+
+#delete years that have >14 days missing data using calc_rle function from functions I built for this project
+lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
+
+#unlist the station numbers
+stns_ready <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
+
+#reformat date and fill remaining missing values with preceding values
+stns_daymonthyear_full <- stns_ready %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup')
+
+#to see how many years in each station - get rid of stations with not enough data
+stns_daymonthyear_full %>%
+  group_by(STATION_NUMBER) %>%
+  summarise(Year = toString(unique(waterYear)))
+
+```
+
+
+```{r, echo = FALSE}
+#Seasonal data 
+stn_cln <- stn_all %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(waterYear >= 1999) %>% 
+  filter(waterYear < 2021) %>%
+  filter(month(Date) %in% c(3,4,5,6,7,8,9,10)) #seasonal stations only, remove for year round data 
+
+#delete years that have >14 days missing data using calc_rle function from functions I built for this project
+lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
+lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
+
+#unlist the station numbers
+stns_ready <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
+
+#reformat date and fill remaining missing values with preceding values
+stns_daymonthyear_seas <- stns_ready %>%
+  mutate(Date = format(Date,"%d-%m-%Y")) %>%
+  group_by(STATION_NUMBER) %>%
+  fill(Value, .direction = 'downup')%>%
+  filter(STATION_NUMBER != '07DD003')
+
+#to see how many years in each station
+stns_daymonthyear_seas %>%
+  group_by(STATION_NUMBER) %>%
+  summarise(Year = toString(unique(waterYear)))
+
+```
+
+## Part 1- Regime Shape 
+####  full year dataset
+
+```{r, echo = FALSE}
+
+#calculate the weekly medians for each station and year, and then the station-wide medians
+#full data first
+stns_full_meds <- stns_daymonthyear_full %>%
+  group_by(STATION_NUMBER, waterYear, weeks) %>%
+  summarize(wkly_median = median(runoff))%>%
+ group_by(STATION_NUMBER, weeks) %>% 
+  summarize(meta_med = median(wkly_median)) 
+
+#translate to z-score 
+stns_full_z <- stns_full_meds %>%
+  group_by(STATION_NUMBER) %>%
+  mutate(z_scores = scale(meta_med)) %>%
+select(STATION_NUMBER, weeks, z_scores)
+
+#pivot so the weeks are columns, and stn numbers are the rows 
+stns_full_z <- stns_full_z %>%
+pivot_wider(names_from = weeks, values_from = z_scores) %>%
+  column_to_rownames('STATION_NUMBER')
+  
+```
+
+####  clustering - full year dataset
+```{r, echo = FALSE}
+#clustering for part 1 - hierarchical agglomerative
+#compare diff linkage methods (ways of measuring dissimilarity)
+
+dist <- dist(stns_full_z, method = "euclidean")
+hclust <- hclust(dist, method = "complete")
+plot(hclust, cex = 0.6, hang = -1)
+
+
+hclust2 <- agnes(stns_full_z, method = "complete") 
+
+pltree(hclust2, cex = 0.6, hang = -1, main = "Dendrogram of agnes")
+```
+
+
+```{r, echo = FALSE}
+#find strongest linkage method
+
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+ac <- function(x) {
+  agnes(stns_full_z, method = x)$ac
+}
+
+map_dbl(m, ac)
+#none look that strong 
+
+```
+
+####  seasonal dataset
+```{r, echo = FALSE}
+
+#calculate the weekly medians for each station and year, and then the station-wide medians
+#full data first
+stns_seas_meds <- stns_daymonthyear_seas %>%
+  group_by(STATION_NUMBER, waterYear, weeks) %>%
+  summarize(wkly_median = median(runoff))%>%
+ group_by(STATION_NUMBER, weeks) %>% 
+  summarize(meta_med = median(wkly_median)) 
+
+#translate to z-score 
+stns_seas_z <- stns_seas_meds %>%
+  group_by(STATION_NUMBER) %>%
+  mutate(z_scores = scale(meta_med)) %>%
+select(STATION_NUMBER, weeks, z_scores)
+
+#pivot so the weeks are columns, and stn numbers are the rows 
+stns_seas_z <- stns_seas_z %>%
+pivot_wider(names_from = weeks, values_from = z_scores) %>%
+  column_to_rownames('STATION_NUMBER')
+  
+
+```
+
+
+####  clustering - seasonal dataset
+
+```{r, echo = FALSE}
+#clustering for part 1 - hierarchical agglomerative
+#compare diff linkage methods (ways of measuring dissimilarity)
+
+dist <- dist(stns_seas_z, method = "euclidean")
+hclust <- hclust(dist, method = "complete")
+plot(hclust, cex = 0.6, hang = -1)
+
+#wards is strongest
+hclust2 <- agnes(stns_seas_z, method = "ward") 
+pltree(hclust2, cex = 0.6, hang = -1, main = "Dendrogram of agnes")
+
+```
+
+
+```{r, echo = FALSE}
+#find strongest linkage method
+
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+ac <- function(x) {
+  agnes(stns_seas_z, method = x)$ac
+}
+
+map_dbl(m, ac)
+#none look that strong 
+```
+
+
+
+#Part 2 - Regime Size
+
+```{r}
+
+```
+
+#PART 3 - Broader variables - IHA, etc 
+
+```{r, echo = FALSE, message = FALSE}
+
+#Calculate IHA - year round data 
+
+#make a list of dfs- split by station number
+lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER)
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
+View(IHA)
+
+
+```
+
+
+
+```{r, echo = FALSE, message = FALSE}
+
+#Calculate IHA - seasonal data set 
+
+#make a list of dfs- split by station number
+lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER)
+
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
+
+#Combine all IHA outputs into one df (unnlist the dfs)
+#make a "watershed" column for graphing later
+IHA_seas <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
+View(IHA_seas)
+
+```
+
+```{r, echo = FALSE, include = FALSE}
+#get a list of years and data availability - year round data 
+IHA_fullyr <- IHA %>%
+  filter(Year != 1989) %>%
+  group_by(STATION_NUMBER) %>%
+  summarise(Year = toString(unique(Year)))
+
+#get a list of years and data availability - seasonal data 
+IHA_seasonal <- IHA_seas %>%
+  filter(Year > 1989) %>%
+  group_by(STATION_NUMBER) %>%
+  summarise(Year = toString(unique(Year)))
+```
+
+
+```{r, echo = FALSE}
+
+#graphing data availability for year round stations 
+ggplot(IHA, aes(x = Year, y = STATION_NUMBER)) +
+  geom_tile(fill = "lightgreen", color = "white") +
+  theme_classic() +
+  ylab("") +
+  ggtitle("Full Year Data Availability - IHA variables") +
+    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 9), plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r, echo = FALSE}
+#graphing data availability for seasonal stations 
+ggplot(IHA_seas, aes(x = Year, y = STATION_NUMBER)) +
+  geom_tile(fill = "skyblue", color = "white") +
+  theme_classic() +
+  ylab("") +
+  ggtitle("Seasonal Data Availability - IHA variables") +
+    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 9), plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r}
+unique(IHA$STATION_NUMBER)
+unique(IHA_seas$STATION_NUMBER)
+
+hy_stn_data_coll(station_number = "07NB001")
+hy_stations(station_number = "07DD001" )
+
+```
+
