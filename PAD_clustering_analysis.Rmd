@@ -332,7 +332,6 @@ rm(stn_all_split, stn_all_split_doy)
 
 
 ```{r, echo = FALSE}
-
 #add a column of weeks of the year to later group by 
 stn_all <- stn_all %>% 
   group_by(STATION_NUMBER, waterYear) %>%
@@ -342,22 +341,18 @@ stn_all <- stn_all %>%
 
 #this works for calendar year but not for water year
 #test$week_num <- strftime(test$Date, format = "%V")
-
-
 ```
 
+
 ```{r, echo = FALSE}
-#calculate discharge - get gross discharge for all stations and join to stn_all
+
+#et gross discharge for all stations and join to stn_all
 
 stn_drainage <- tidyhydat::hy_stations(station_number = c('07DD001','07DD002','07DD003','07DD004','07DD005','07DD006','07DD007','07DD008','07DD009',
 '07DD010','07DD011','07HF001','07JD001','07JD002','07JD003','07JD004','07JF002','07JF003','07JF004','07JF005','07KA002','07KC001','07KC003','07KC004','07KC005','07KE001','07KF001','07KF002','07KF003','07KF004','07KF005','07KF006','07KF007','07KF008','07KF010','07KF013','07KF014','07KF015','07NA001','07NA002','07NA003','07NA004','07NA005','07NA007','07NA008','07NB001','07NB002','07NB003','07NB004','07NB005','07NB006','07NB007','07NB008','07NC001','07NC002','07NC003','07NC004','07NC005') ) 
 
 #join
 stn_all <- left_join(stn_all, stn_drainage, by = "STATION_NUMBER")  %>% select(-c(ends_with(".x")))
-
-#calculate total discharge 
-stn_all <- stn_all %>% 
-  mutate(runoff = ((Value * 3600 * 24) / (DRAINAGE_AREA_GROSS.y * 1000000) ))
 
 ```
 
@@ -384,7 +379,10 @@ stns_ready <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER")
 stns_daymonthyear_full <- stns_ready %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
-  fill(Value, .direction = 'downup')
+  fill(Value, .direction = 'downup') %>%
+#calculate total discharge(runoff) 
+  mutate(runoff = ((Value * 3600 * 24) / (DRAINAGE_AREA_GROSS * 1000000) ))
+
 
 #to see how many years in each station - get rid of stations with not enough data
 stns_daymonthyear_full %>%
@@ -414,12 +412,30 @@ stns_daymonthyear_seas <- stns_ready %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup')%>%
-  filter(STATION_NUMBER != '07DD003')
+  filter(STATION_NUMBER != '07DD003') %>%
+#calculate total discharge 
+  mutate(runoff = ((Value * 3600 * 24) / (DRAINAGE_AREA_GROSS * 1000000) ))
+
 
 #to see how many years in each station
 stns_daymonthyear_seas %>%
   group_by(STATION_NUMBER) %>%
   summarise(Year = toString(unique(waterYear)))
+
+```
+
+```{r, echo = FALSE}
+#calculate discharge - get gross discharge for all stations and join to stn_all
+
+stn_drainage <- tidyhydat::hy_stations(station_number = c('07DD001','07DD002','07DD003','07DD004','07DD005','07DD006','07DD007','07DD008','07DD009',
+'07DD010','07DD011','07HF001','07JD001','07JD002','07JD003','07JD004','07JF002','07JF003','07JF004','07JF005','07KA002','07KC001','07KC003','07KC004','07KC005','07KE001','07KF001','07KF002','07KF003','07KF004','07KF005','07KF006','07KF007','07KF008','07KF010','07KF013','07KF014','07KF015','07NA001','07NA002','07NA003','07NA004','07NA005','07NA007','07NA008','07NB001','07NB002','07NB003','07NB004','07NB005','07NB006','07NB007','07NB008','07NC001','07NC002','07NC003','07NC004','07NC005') ) 
+
+#join
+stn_all <- left_join(stn_all, stn_drainage, by = "STATION_NUMBER")  %>% select(-c(ends_with(".x")))
+
+#calculate total discharge 
+stn_all <- stn_all %>% 
+  mutate(runoff = ((Value * 3600 * 24) / (DRAINAGE_AREA_GROSS.y * 1000000) ))
 
 ```
 
@@ -450,6 +466,7 @@ pivot_wider(names_from = weeks, values_from = z_scores) %>%
 ```
 
 ####  clustering - full year dataset
+https://uc-r.github.io/hc_clustering 
 ```{r, echo = FALSE}
 #clustering for part 1 - hierarchical agglomerative
 #compare diff linkage methods (ways of measuring dissimilarity)
@@ -458,26 +475,28 @@ dist <- dist(stns_full_z, method = "euclidean")
 hclust <- hclust(dist, method = "complete")
 plot(hclust, cex = 0.6, hang = -1)
 
-
 hclust2 <- agnes(stns_full_z, method = "complete") 
+pltree(hclust2, cex = 0.6, hang = -1, main = "Regime shape: Full year data")
 
-pltree(hclust2, cex = 0.6, hang = -1, main = "Dendrogram of agnes")
+#agglomerative coefficient is low, 0.522
+#hclust2$ac 
 ```
 
 
 ```{r, echo = FALSE}
-#find strongest linkage method
+#find strongest linkage method 
+#code taken from https://uc-r.github.io/hc_clustering
 
 m <- c( "average", "single", "complete", "ward")
 names(m) <- c( "average", "single", "complete", "ward")
 
 ac <- function(x) {
-  agnes(stns_full_z, method = x)$ac
+  agnes(stns_full_z, method = x)$ac 
 }
 
 map_dbl(m, ac)
-#none look that strong 
 
+#none look that strong, likely no clusters?
 ```
 
 ####  seasonal dataset
@@ -512,40 +531,191 @@ pivot_wider(names_from = weeks, values_from = z_scores) %>%
 #clustering for part 1 - hierarchical agglomerative
 #compare diff linkage methods (ways of measuring dissimilarity)
 
-dist <- dist(stns_seas_z, method = "euclidean")
-hclust <- hclust(dist, method = "complete")
-plot(hclust, cex = 0.6, hang = -1)
 
-#wards is strongest
-hclust2 <- agnes(stns_seas_z, method = "ward") 
-pltree(hclust2, cex = 0.6, hang = -1, main = "Dendrogram of agnes")
-
-```
-
-
-```{r, echo = FALSE}
 #find strongest linkage method
-
 m <- c( "average", "single", "complete", "ward")
 names(m) <- c( "average", "single", "complete", "ward")
 
 ac <- function(x) {
   agnes(stns_seas_z, method = x)$ac
 }
-
 map_dbl(m, ac)
-#none look that strong 
+
+#cluster with ward linkage method, ac = .85
+hclust3 <- agnes(stns_seas_z, method = "ward") 
+pltree(hclust3, cex = 0.6, hang = -1, main = "Regime shape: seasonal data")
+
+
+#plot cluster with groups = 3
+sub_grp <- cutree(hclust3, k = 3)
+pltree(hclust3, cex = 0.6)
+rect.hclust(hclust3, k = 3, border = 2:5)
+
+cutree(as.hclust(hclust3), k = 3)
+
+fviz_nbclust(stns_seas_z, FUN = hcut, method = "silhouette")
+
+#could be two groups or 3 groups 
+#when sure can add to data: 
+stns_seas_clusters <- stns_seas_z %>%
+  mutate(cluster_number = sub_grp) %>%
+  rownames_to_column('STATION_NUMBER')
+
+seas_clust_latlong <- left_join(stns_seas_clusters, stn_drainage, by = "STATION_NUMBER")
+
 ```
 
+#map clustering results - Seasonal Stations
+```{r, echo = FALSE}
+
+library(leaflet)
+pal <- colorFactor(palette = c("red", 'blue', "green"), domain = stns_seas_clusters$cluster_number)
+
+leaflet(seas_clust_latlong) %>% addTiles() %>%
+  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE, color = ~pal(cluster_number), fillColor = ~pal(cluster_number), fillOpacity = 0.6, radius = 5, stroke = FALSE)
+             
+
+```
 
 
 #Part 2 - Regime Size
+####  full year dataset
 
-```{r}
+```{r, echo = FALSE}
+
+#calc variables by water year, and then get medians for whole time period
+ stns_regsize_full <- stns_daymonthyear_full %>%
+  group_by(STATION_NUMBER, waterYear) %>%
+  summarise(median_runoff = median(runoff),
+         stdev_runoff = sd(runoff),
+         max_runoff = max(runoff),
+         min_runoff = min(runoff)) %>%
+  group_by(STATION_NUMBER) %>%
+  summarise(median_median_runoff = median(median_runoff),
+            median_stdev_runoff = median(stdev_runoff),
+            median_max_runoff = median(max_runoff),
+            median_min_runoff = median(min_runoff)) %>%
+          column_to_rownames('STATION_NUMBER') 
+      
+
+stns_regsize_full_z <-  as.data.frame( scale(stns_regsize_full))
 
 ```
 
-#PART 3 - Broader variables - IHA, etc 
+####  clustering - full year dataset
+
+```{r, echo = FALSE}
+#clustering for part 1 - hierarchical agglomerative
+#first compare diff linkage methods (ways of measuring dissimilarity) to find the strongest linkage method
+#code taken from https://uc-r.github.io/hc_clustering
+
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+ac <- function(x) {
+  agnes(stns_regsize_full_z, method = x)$ac 
+}
+
+map_dbl(m, ac)
+
+hclustd <- agnes(stns_regsize_full_z, method = "complete") 
+pltree(hclustd, cex = 0.6, hang = -1, main = "Regime size: Full year data")
+
+
+#agglomerative coefficient is low, 0.57
+#hclustd$ac 
+```
+
+####  seasonal dataset
+
+```{r, echo = FALSE}
+
+#calc variables by water year, and then get medians for whole time period
+ stns_regsize_seas <- stns_daymonthyear_seas %>%
+  group_by(STATION_NUMBER, waterYear) %>%
+  summarise(median_runoff = median(runoff),
+         stdev_runoff = sd(runoff),
+         max_runoff = max(runoff),
+         min_runoff = min(runoff)) %>%
+  group_by(STATION_NUMBER) %>%
+  summarise(median_median_runoff = median(median_runoff),
+            median_stdev_runoff = median(stdev_runoff),
+            median_max_runoff = median(max_runoff),
+            median_min_runoff = median(min_runoff)) %>%
+          column_to_rownames('STATION_NUMBER') 
+      
+
+stns_regsize_seas_z <-  as.data.frame( scale(stns_regsize_seas))
+
+```
+
+#### clustering - seasonal dataset
+
+```{r, echo = FALSE}
+#clustering for part 1 - hierarchical agglomerative
+#first compare diff linkage methods (ways of measuring dissimilarity) to find the strongest linkage method
+#code taken from https://uc-r.github.io/hc_clustering
+
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+ac <- function(x) {
+  agnes(stns_regsize_seas_z, method = x)$ac 
+}
+
+map_dbl(m, ac)
+
+hclustd2 <- agnes(stns_regsize_seas_z, method = "ward") 
+pltree(hclustd2, cex = 0.6, hang = -1, main = "Regime size: Full year data")
+
+
+#agglomerative coefficient is high, 0.81
+#hclustd2$ac 
+
+
+```
+
+
+```{r, echo = FALSE}
+
+#plot cluster with groups = 3
+sub_grp <- cutree(hclustd2, k = 4)
+pltree(hclustd2, cex = 0.6)
+rect.hclust(hclustd2, k = 4, border = 2:5)
+
+cutree(as.hclust(hclustd2), k = 4)
+
+fviz_nbclust(stns_regsize_seas_z, FUN = hcut, method = "wss")
+
+#could be two groups or 3 groups 
+#when sure can add to data: 
+stns_seas_clusters <- stns_regsize_seas_z %>%
+  mutate(cluster_number = sub_grp) %>%
+  rownames_to_column('STATION_NUMBER')
+
+seas_clust_latlong <- left_join(stns_seas_clusters, stn_drainage, by = "STATION_NUMBER")
+
+
+```
+
+
+#### map clustering results - Seasonal Stations
+
+```{r}
+
+
+library(leaflet)
+pal <- colorFactor(palette = c("red", 'blue', "green"), domain = stns_seas_clusters$cluster_number)
+
+leaflet(seas_clust_latlong) %>% addTiles() %>%
+  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE, color = ~pal(cluster_number), fillColor = ~pal(cluster_number), fillOpacity = 0.6, radius = 5, stroke = FALSE)
+
+
+```
+
+
+
+#PART 3 - Broader variables - IHA and Ice variables 
 
 ```{r, echo = FALSE, message = FALSE}
 
@@ -561,7 +731,6 @@ lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 #make a "watershed" column for graphing later
 IHA <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 View(IHA)
-
 
 ```
 
