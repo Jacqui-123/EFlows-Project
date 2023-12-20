@@ -3,7 +3,7 @@
 #### This project describes......
 
 
-```{r, echo=FALSE, message = FALSE, warning= FALSE}
+```{r, echo=FALSE, message = FALSE, warning= FALSE, include = FALSE}
 library(IHA)
 library(tidyverse)
 library(tidyhydat)
@@ -11,9 +11,13 @@ library(zoo)
 library(lubridate)
 library(ggplot2)
 library(dataRetrieval)
+library(data.table)
 library(knitr)
 library(plotly)
+library(patchwork)
+library(leaflet)
 library(manipulateWidget)
+library(caTools)
 library(cluster)    # clustering algorithms
 library(factoextra) # clustering visualization
 library(dendextend) #for comparing two dendrograms
@@ -22,14 +26,7 @@ library(dendextend) #for comparing two dendrograms
 ```
 
 
-```{r, echo = FALSE}
-library(tidyverse)
-library(tidyhydat)
-library(zoo)
-library(lubridate)
-library(caTools)
-library(dataRetrieval)
-
+```{r, echo = FALSE, include = FALSE}
 # Various functions for calculating: IHA, Percent Change, and ice Variables 
 # Created by Jacqui Levy
 
@@ -54,7 +51,6 @@ library(dataRetrieval)
   
   
 #RLE FUNCTION
-  
 
   calc_rle <- function(df) {
     #function to remove years that have > 14 consecutive NA values (ie 14 days in a row with no data) 
@@ -291,15 +287,37 @@ library(dataRetrieval)
     }
       Freshet_dates_flow <- rownames_to_column(df, "waterYear")
       return(Freshet_dates_flow)
-  }  
+  }
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+
+#function for mapping clusters
+
+map_function <- function(df) {
   
-  
+  pal <- colorFactor(palette = "viridis", 
+  domain = factor({{df}}$cluster_number, 
+                levels = unique({{df}}$cluster_number)),
+                 ordered = FALSE)
+    
+m <- leaflet({{df}}) %>% addTiles() %>%
+  leaflet::addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE, color = ~pal(cluster_number), fillColor = ~pal(cluster_number), fillOpacity = 2, radius = 5, stroke = FALSE) %>%
+addLabelOnlyMarkers(label = ~STATION_NUMBER, labelOptions = labelOptions(noHide = T, textsize = "8px", textOnly = T, noOverlap = TRUE, offset = c(-8,-8))) %>%
+leaflegend::addLegendFactor(pal = pal, values = ~cluster_number,
+    title = "Cluster",
+    opacity = 10, position ="bottomright", shape ="circle", width = 10, height = 10)
+return(m)
+
+}
+
 ```
 
 #### 1) Tidy stations using pipelines, functions and methods shown previously 
 
 #### See https://rpubs.com/Jacqui-123/1093734 for a small-scale example of pipelines, functions and tidying workflows 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include = FALSE}
 
 #extract stations from the Water Survey of Canada database
 
@@ -309,7 +327,7 @@ stn_all <- tidyhydat::hy_daily_flows(station_number = c('07DD001','07DD002','07D
 ```
 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include = FALSE}
 stn_all <- stn_all %>%
   group_by(STATION_NUMBER) %>%
 #make a complete set of days for each year 
@@ -331,22 +349,24 @@ rm(stn_all_split, stn_all_split_doy)
 ```
 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include = FALSE}
 #add a column of weeks of the year to later group by 
+
+
 stn_all <- stn_all %>% 
   group_by(STATION_NUMBER, waterYear) %>%
-  mutate(weeks = rep(1:(ceiling(n()/7)), each = 7)[1:n()]) %>%  #ceiling always rounds up
+  dplyr::mutate(weeks = rep(1:(ceiling(n()/7)), each = 7)[1:n()]) %>%  #ceiling always rounds up
 #make a new column, and mutate from 1 to the result of ceiling(n()/7), ie 1:52
   mutate(weeks = if_else(weeks == 53, 52, weeks)) #make the one day week 53 be week 52. Issue is that then there are 9 days in week 52 in leap years. Could just omit feb 29th completely?
 
-#this works for calendar year but not for water year
+#this works for calendar year but not for water year:
 #test$week_num <- strftime(test$Date, format = "%V")
 ```
 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include = FALSE}
 
-#et gross discharge for all stations and join to stn_all
+#get gross discharge for all stations and join to stn_all
 
 stn_drainage <- tidyhydat::hy_stations(station_number = c('07DD001','07DD002','07DD003','07DD004','07DD005','07DD006','07DD007','07DD008','07DD009',
 '07DD010','07DD011','07HF001','07JD001','07JD002','07JD003','07JD004','07JF002','07JF003','07JF004','07JF005','07KA002','07KC001','07KC003','07KC004','07KC005','07KE001','07KF001','07KF002','07KF003','07KF004','07KF005','07KF006','07KF007','07KF008','07KF010','07KF013','07KF014','07KF015','07NA001','07NA002','07NA003','07NA004','07NA005','07NA007','07NA008','07NB001','07NB002','07NB003','07NB004','07NB005','07NB006','07NB007','07NB008','07NC001','07NC002','07NC003','07NC004','07NC005') ) 
@@ -357,7 +377,7 @@ stn_all <- left_join(stn_all, stn_drainage, by = "STATION_NUMBER")  %>% select(-
 ```
 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include = FALSE}
 
 #Use the functions built for this project to delete years with more than 14 consecutive days of missing data, and the tidyverse package to estimate missing observations using the last existing observation.
 
@@ -392,7 +412,7 @@ stns_daymonthyear_full %>%
 ```
 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include = FALSE}
 #Seasonal data 
 stn_cln <- stn_all %>%
   mutate(Date = as.Date(Date)) %>%
@@ -416,7 +436,6 @@ stns_daymonthyear_seas <- stns_ready %>%
 #calculate total discharge 
   mutate(runoff = ((Value * 3600 * 24) / (DRAINAGE_AREA_GROSS * 1000000) ))
 
-
 #to see how many years in each station
 stns_daymonthyear_seas %>%
   group_by(STATION_NUMBER) %>%
@@ -424,7 +443,7 @@ stns_daymonthyear_seas %>%
 
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include = FALSE}
 #calculate discharge - get gross discharge for all stations and join to stn_all
 
 stn_drainage <- tidyhydat::hy_stations(station_number = c('07DD001','07DD002','07DD003','07DD004','07DD005','07DD006','07DD007','07DD008','07DD009',
@@ -439,27 +458,62 @@ stn_all <- stn_all %>%
 
 ```
 
+#### visually assessing data availability 
+```{r, echo = FALSE, warning=FALSE, message = FALSE}
+
+yrs_full <- stns_daymonthyear_full %>%
+  dplyr::group_by(STATION_NUMBER) %>%
+  dplyr::summarise(Year = unique(waterYear))
+
+#graphing data availability for year round stations 
+ggplot(yrs_full, aes(x = Year, y = STATION_NUMBER)) +
+  geom_tile(fill = "lightgreen", color = "white") +
+  theme_classic() +
+  ylab("") +
+  ggtitle("Data Availability - Full Year Stations") +
+    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 9), plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r, echo = FALSE, warning=FALSE, message = FALSE}
+
+yrs_seas <- stns_daymonthyear_seas %>%
+  dplyr::group_by(STATION_NUMBER) %>%
+  dplyr::summarise(Year = unique(waterYear))
+
+#graphing data availability for seasonal stations 
+ggplot(yrs_seas, aes(x = Year, y = STATION_NUMBER)) +
+  geom_tile(fill = "skyblue", color = "white") +
+  theme_classic() +
+  ylab("") +
+  ggtitle("Data Availability - Seasonal Stations") +
+    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 9), plot.title = element_text(hjust = 0.5))
+
+
+```
+
 ## Part 1- Regime Shape 
 ####  full year dataset
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, warning=FALSE, include = FALSE}
 
 #calculate the weekly medians for each station and year, and then the station-wide medians
 #full data first
 stns_full_meds <- stns_daymonthyear_full %>%
   group_by(STATION_NUMBER, waterYear, weeks) %>%
-  summarize(wkly_median = median(runoff))%>%
+  dplyr::summarise(wkly_median = median(runoff))%>%
  group_by(STATION_NUMBER, weeks) %>% 
-  summarize(meta_med = median(wkly_median)) 
+ dplyr::summarise(meta_med = median(wkly_median)) 
 
-#translate to z-score 
-stns_full_z <- stns_full_meds %>%
+#translate to z-score - use this df to graph later on
+stns_full_zf <- stns_full_meds %>%
   group_by(STATION_NUMBER) %>%
   mutate(z_scores = scale(meta_med)) %>%
 select(STATION_NUMBER, weeks, z_scores)
 
 #pivot so the weeks are columns, and stn numbers are the rows 
-stns_full_z <- stns_full_z %>%
+stns_full_z <- stns_full_zf %>%
 pivot_wider(names_from = weeks, values_from = z_scores) %>%
   column_to_rownames('STATION_NUMBER')
   
@@ -467,24 +521,10 @@ pivot_wider(names_from = weeks, values_from = z_scores) %>%
 
 ####  clustering - full year dataset
 https://uc-r.github.io/hc_clustering 
-```{r, echo = FALSE}
-#clustering for part 1 - hierarchical agglomerative
-#compare diff linkage methods (ways of measuring dissimilarity)
-
-dist <- dist(stns_full_z, method = "euclidean")
-hclust <- hclust(dist, method = "complete")
-plot(hclust, cex = 0.6, hang = -1)
-
-hclust2 <- agnes(stns_full_z, method = "complete") 
-pltree(hclust2, cex = 0.6, hang = -1, main = "Regime shape: Full year data")
-
-#agglomerative coefficient is low, 0.522
-#hclust2$ac 
-```
 
 
-```{r, echo = FALSE}
-#find strongest linkage method 
+```{r, echo = FALSE, include = FALSE}
+#find strongest linkage method ie way of measuring dissimilarity 
 #code taken from https://uc-r.github.io/hc_clustering
 
 m <- c( "average", "single", "complete", "ward")
@@ -496,8 +536,101 @@ ac <- function(x) {
 
 map_dbl(m, ac)
 
-#none look that strong, likely no clusters?
+#ward method has highest ac
+
 ```
+
+
+```{r, echo = FALSE}
+#clustering for part 1 - hierarchical agglomerative
+
+#dist <- dist(stns_full_z, method = "euclidean")
+#hclust <- hclust(dist, method = "complete")
+#plot(hclust, cex = 0.6, hang = -1)
+#clustering on the distance matrix gives same results as clustering on the z-scored data
+
+hclust <- agnes(stns_full_z, method = "ward") 
+pltree(hclust, cex = 0.6, hang = -1, main = "Regime shape: Full year data")
+
+#agglomerative coefficient is low, 0.56
+hclust$ac #likely 2-3 clusters 
+
+```
+
+
+```{r, echo = FALSE}
+
+#plot cluster with groups = 2
+sub_grp <- cutree(hclust, k = 2)
+pltree(hclust, cex = 0.6)
+rect.hclust(hclust, k = 2, border = 2:5)
+
+cutree(as.hclust(hclust), k = 2)
+
+fviz_nbclust(stns_full_z, FUN = hcut, method = "wss", k.max = 4) #minimizes within cluster sum squares 
+
+#silhouette score, ranges from -1 to 1 and says how far apart from one another the clusters are. 1/-1 means they are easily distinguished from one another
+fviz_nbclust(stns_full_z, FUN = hcut, method = "silhouette", k.max = 4)
+
+factoextra::fviz_dend(hclust, cex = 0.4, k = 2, k_colors = viridis::viridis_pal()(2),
+main = "Dendogram for agglomerative hierarchical clustering \n (ward linkage method), ac = 0.56")
+
+
+gapstat <- fpc::cluster.stats(stns_full_z, sub_grp)
+gapstat$avg.silwidth #-3.35, means maybe mis-aligned
+gapstat$ch   #40 - likely this has been overfit - or that even though it's the best value it's not great.  
+
+#looks like 2 clusters minimizes the connectivity index. silhouette width is negative and likely most clusters have been assigned to the wrong cluster
+
+```
+
+
+#### graph clustering- full yr data
+```{r, warning= FALSE, echo = FALSE}
+
+#graph clustering results
+full_z_clusters <- as.data.frame(sub_grp) %>% 
+  dplyr::rename(cluster_number = sub_grp ) %>%
+  rownames_to_column('STATION_NUMBER') %>%
+  left_join(stns_full_zf, by = 'STATION_NUMBER') %>%
+  group_by(cluster_number, weeks) %>%
+  dplyr::summarize(cluster_median = median(z_scores)) %>% 
+  complete(weeks = seq(1:52))
+
+#graph weekly z scores by cluster only 
+ggplot(full_z_clusters, aes(y = cluster_median, x = weeks, color = as.factor(cluster_number ))) +
+  geom_line() +
+    theme_bw() +
+ ylab('Cluster median runoff (z-scores)') + 
+   xlab('Week number') +
+  ggtitle(" ") +
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  scale_colour_viridis_d() +
+  labs(color = "Cluster Number") +
+  ggtitle("Regime Shape - Weekly Medians \n by Cluster (z-scores)")
+
+#combined <- m + z + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+
+
+```
+
+
+#### map clustering- full yr data
+
+```{r}
+
+#add subgroup (cluster) column to the df, join with lat-long and map
+stns_full_clusters <- stns_full_z %>%
+ dplyr::mutate(cluster_number = sub_grp) %>%
+  rownames_to_column('STATION_NUMBER')
+
+full_clust_latlong <- left_join(stns_full_clusters, stn_drainage, by = "STATION_NUMBER")
+
+map_function(full_clust_latlong)
+
+
+```
+
 
 ####  seasonal dataset
 ```{r, echo = FALSE}
@@ -506,18 +639,18 @@ map_dbl(m, ac)
 #full data first
 stns_seas_meds <- stns_daymonthyear_seas %>%
   group_by(STATION_NUMBER, waterYear, weeks) %>%
-  summarize(wkly_median = median(runoff))%>%
+ dplyr::summarize(wkly_median = median(runoff))%>%
  group_by(STATION_NUMBER, weeks) %>% 
-  summarize(meta_med = median(wkly_median)) 
+  dplyr::summarize(meta_med = median(wkly_median)) 
 
-#translate to z-score 
-stns_seas_z <- stns_seas_meds %>%
+#translate to z-score , use this to graph later on
+stns_seas_zs <- stns_seas_meds %>%
   group_by(STATION_NUMBER) %>%
   mutate(z_scores = scale(meta_med)) %>%
 select(STATION_NUMBER, weeks, z_scores)
 
 #pivot so the weeks are columns, and stn numbers are the rows 
-stns_seas_z <- stns_seas_z %>%
+stns_seas_z <- stns_seas_zs %>%
 pivot_wider(names_from = weeks, values_from = z_scores) %>%
   column_to_rownames('STATION_NUMBER')
   
@@ -528,9 +661,7 @@ pivot_wider(names_from = weeks, values_from = z_scores) %>%
 ####  clustering - seasonal dataset
 
 ```{r, echo = FALSE}
-#clustering for part 1 - hierarchical agglomerative
 #compare diff linkage methods (ways of measuring dissimilarity)
-
 
 #find strongest linkage method
 m <- c( "average", "single", "complete", "ward")
@@ -540,40 +671,88 @@ ac <- function(x) {
   agnes(stns_seas_z, method = x)$ac
 }
 map_dbl(m, ac)
+#cluster with ward linkage method, ac = .90
 
-#cluster with ward linkage method, ac = .85
-hclust3 <- agnes(stns_seas_z, method = "ward") 
-pltree(hclust3, cex = 0.6, hang = -1, main = "Regime shape: seasonal data")
+```
 
+
+```{r, echo = FALSE}
 
 #plot cluster with groups = 3
-sub_grp <- cutree(hclust3, k = 3)
-pltree(hclust3, cex = 0.6)
-rect.hclust(hclust3, k = 3, border = 2:5)
+hclust2 <- agnes(stns_seas_z, method = "ward") 
+pltree(hclust2, cex = 0.6, hang = -1, main = "Regime shape: seasonal data")
 
-cutree(as.hclust(hclust3), k = 3)
+#plot cluster with groups = 3
+sub_grp <- cutree(hclust2, k = 3)
+pltree(hclust2, cex = 0.6)
+rect.hclust(hclust2, k = 3, border = 2:5)
 
-fviz_nbclust(stns_seas_z, FUN = hcut, method = "silhouette")
+hclust2$ac
 
-#could be two groups or 3 groups 
-#when sure can add to data: 
+cutree(as.hclust(hclust2), k = 3)
+
+fviz_nbclust(stns_seas_z, FUN = hcut, method = "wss")
+fviz_nbclust(stns_seas_z, FUN = hcut, method = "silhouette", k.max = 10)
+
+factoextra::fviz_dend(hclust2, cex = 0.4, k = 3, k_colors = viridis::viridis_pal()(3),
+main = "Dendogram for agglomerative hierarchical clustering \n (ward linkage method), ac = 0.91")
+
+
+gapstat <- fpc::cluster.stats(stns_seas_z, sub_grp)
+gapstat$avg.silwidth #-.35, means maybe mis-aligned
+gapstat$ch   #0.7  
+
+#overall, three clusters minimizes the connectivity index and has the least negative silhouette width, even though the dendogram looks like 2 clusters is best. 
+
+#graph below confirms this.  
+
+for (k in 2:10) {
+  clusters <- cutree(hclust2, k = k)
+  stats <- fpc::cluster.stats(stns_seas_z, clusters)
+  cat("Clusters:", k, "-avg sil width", stats$avg.silwidth, "connectivity index:", stats$ch, "\n")
+}
+
+```
+
+
+#### graph clustering results - seasonal dataset 
+```{r, echo = FALSE, message= FALSE}
+
+#graph clustering results
+seas_z_clusters <- as.data.frame(sub_grp) %>% 
+  dplyr::rename(cluster_number = sub_grp ) %>%
+  rownames_to_column('STATION_NUMBER') %>%
+  left_join(stns_seas_zs, by = 'STATION_NUMBER') %>%
+  group_by(cluster_number, weeks) %>%
+  dplyr::summarize(cluster_median = median(z_scores)) %>% 
+  complete(weeks = seq(1:52))
+
+#graph weekly medians by cluster only 
+ggplot(seas_z_clusters, aes(y = cluster_median, x = weeks, color = as.factor(cluster_number ))) +
+  geom_line() +
+    theme_bw() +
+ ylab('Cluster median runoff (z-scores)') + 
+   xlab('Week number') +
+  ggtitle(" ") +
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  scale_colour_viridis_d() +
+  labs(color = "Cluster Number") +
+  ggtitle("Regime Shape - Weekly Medians \n by Cluster (z-scores)")
+
+```
+
+####  map clustering results - Seasonal Stations
+```{r, echo = FALSE}
+
+#add subgroup (cluster) column to the df
+
 stns_seas_clusters <- stns_seas_z %>%
   mutate(cluster_number = sub_grp) %>%
   rownames_to_column('STATION_NUMBER')
 
 seas_clust_latlong <- left_join(stns_seas_clusters, stn_drainage, by = "STATION_NUMBER")
 
-```
-
-#map clustering results - Seasonal Stations
-```{r, echo = FALSE}
-
-library(leaflet)
-pal <- colorFactor(palette = c("red", 'blue', "green"), domain = stns_seas_clusters$cluster_number)
-
-leaflet(seas_clust_latlong) %>% addTiles() %>%
-  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE, color = ~pal(cluster_number), fillColor = ~pal(cluster_number), fillOpacity = 0.6, radius = 5, stroke = FALSE)
-             
+map_function(seas_clust_latlong)
 
 ```
 
@@ -586,12 +765,12 @@ leaflet(seas_clust_latlong) %>% addTiles() %>%
 #calc variables by water year, and then get medians for whole time period
  stns_regsize_full <- stns_daymonthyear_full %>%
   group_by(STATION_NUMBER, waterYear) %>%
-  summarise(median_runoff = median(runoff),
+  dplyr::summarise(median_runoff = median(runoff),
          stdev_runoff = sd(runoff),
          max_runoff = max(runoff),
          min_runoff = min(runoff)) %>%
   group_by(STATION_NUMBER) %>%
-  summarise(median_median_runoff = median(median_runoff),
+  dplyr::summarise(median_median_runoff = median(median_runoff),
             median_stdev_runoff = median(stdev_runoff),
             median_max_runoff = median(max_runoff),
             median_min_runoff = median(min_runoff)) %>%
@@ -616,15 +795,95 @@ ac <- function(x) {
   agnes(stns_regsize_full_z, method = x)$ac 
 }
 
-map_dbl(m, ac)
+map_dbl(m, ac) #complete is best
+```
 
-hclustd <- agnes(stns_regsize_full_z, method = "complete") 
-pltree(hclustd, cex = 0.6, hang = -1, main = "Regime size: Full year data")
 
+```{r, echo = FALSE}
+
+#clustering using complete linkage method
+hclustf <- agnes(stns_regsize_full_z, method = "complete") 
+pltree(hclustf, cex = 0.6, hang = -1, main = "Regime size: Full year data")
 
 #agglomerative coefficient is low, 0.57
-#hclustd$ac 
+hclustf$ac 
+
+#plot cluster with groups = 2
+sub_grp <- cutree(hclustf, k = 2)
+cutree(as.hclust(hclustf), k = 2)
+
+factoextra::fviz_dend(hclustf, cex= 0.4, k = 2, k_colors = viridis::viridis_pal()(2),
+main = "Dendogram for agglomerative hierarchical clustering \n (complete linkage method), ac = 0.57")
+
+
+gapstat <- fpc::cluster.stats(stns_regsize_full_z, sub_grp)
+gapstat$avg.silwidth #-.95, means maybe mis-aligned
+gapstat$ch   #1.1  
+
+
 ```
+
+
+```{r}
+
+
+#when sure can add data to clustering: 
+stns_full_clusters <- stns_regsize_full_z %>%
+  dplyr::mutate(cluster_number = sub_grp) %>%
+  rownames_to_column('STATION_NUMBER')
+
+full_clust_latlong_z <- left_join(stns_full_clusters, stn_drainage, by = "STATION_NUMBER")
+
+#full_clust_latlong_z %>% select(STATION_NUMBER, cluster_number)
+
+
+
+
+```
+
+#### graph full year dataset
+
+```{r, echo = FALSE}
+
+#graph clustering results using z scores
+full_regsize_clusters_z <- full_clust_latlong_z %>%
+  dplyr::rename("median" = "median_median_runoff",
+         "st. dev." = "median_stdev_runoff",
+         "min" = 'median_min_runoff',
+         "max" = "median_max_runoff")
+
+
+melted <- reshape2::melt(full_regsize_clusters_z, id.vars= "cluster_number", measure.vars = c("median", "st. dev.", "min", "max"))
+
+#graph medians by cluster 
+ggplot(melted, aes(x = variable, y= value, fill = as.factor(cluster_number))) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar") +
+  facet_wrap(~cluster_number) + 
+    theme_bw() +
+ ylab('Runoff (z-score)') + 
+   xlab('') +
+  ggtitle(" ") + 
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  labs(color = "Cluster Number") +
+  ggtitle("Regime Size - Full year dataset") +
+  theme(axis.text.x = element_text(angle= 90)) +
+ viridis::scale_fill_viridis(discrete = TRUE) +
+  theme(legend.position = "none")
+
+
+```
+#### map full year dataset
+
+
+```{r, echo = FALSE, message= FALSE}
+
+map_function(full_clust_latlong_z)
+
+
+```
+
+
 
 ####  seasonal dataset
 
@@ -633,26 +892,26 @@ pltree(hclustd, cex = 0.6, hang = -1, main = "Regime size: Full year data")
 #calc variables by water year, and then get medians for whole time period
  stns_regsize_seas <- stns_daymonthyear_seas %>%
   group_by(STATION_NUMBER, waterYear) %>%
-  summarise(median_runoff = median(runoff),
+  dplyr::summarise(median_runoff = median(runoff),
          stdev_runoff = sd(runoff),
          max_runoff = max(runoff),
          min_runoff = min(runoff)) %>%
   group_by(STATION_NUMBER) %>%
-  summarise(median_median_runoff = median(median_runoff),
+ dplyr::summarise(median_median_runoff = median(median_runoff),
             median_stdev_runoff = median(stdev_runoff),
             median_max_runoff = median(max_runoff),
             median_min_runoff = median(min_runoff)) %>%
           column_to_rownames('STATION_NUMBER') 
       
 
-stns_regsize_seas_z <-  as.data.frame( scale(stns_regsize_seas))
+stns_regsize_seas_z <-  as.data.frame(scale(stns_regsize_seas))
 
 ```
 
 #### clustering - seasonal dataset
 
 ```{r, echo = FALSE}
-#clustering for part 1 - hierarchical agglomerative
+#hierarchical agglomerative clustering
 #first compare diff linkage methods (ways of measuring dissimilarity) to find the strongest linkage method
 #code taken from https://uc-r.github.io/hc_clustering
 
@@ -665,83 +924,216 @@ ac <- function(x) {
 
 map_dbl(m, ac)
 
-hclustd2 <- agnes(stns_regsize_seas_z, method = "ward") 
-pltree(hclustd2, cex = 0.6, hang = -1, main = "Regime size: Full year data")
+#ward is strongest
+```
 
+
+```{r, echo = FALSE}
+
+#cluster using ward
+hclusts <- agnes(stns_regsize_seas_z, method = "ward") 
+pltree(hclusts, cex = 0.6, hang = -1, main = "Regime size: Seasonal data")
 
 #agglomerative coefficient is high, 0.81
-#hclustd2$ac 
+hclusts$ac 
+
 
 
 ```
 
 
 ```{r, echo = FALSE}
-
 #plot cluster with groups = 3
-sub_grp <- cutree(hclustd2, k = 4)
-pltree(hclustd2, cex = 0.6)
-rect.hclust(hclustd2, k = 4, border = 2:5)
+sub_grp <- cutree(hclusts, k = 3)
+pltree(hclusts, cex = 0.6)
+rect.hclust(hclusts, k = 3, border = 2:5)
 
-cutree(as.hclust(hclustd2), k = 4)
+cutree(as.hclust(hclusts), k = 3)
 
 fviz_nbclust(stns_regsize_seas_z, FUN = hcut, method = "wss")
 
-#could be two groups or 3 groups 
-#when sure can add to data: 
-stns_seas_clusters <- stns_regsize_seas_z %>%
-  mutate(cluster_number = sub_grp) %>%
-  rownames_to_column('STATION_NUMBER')
 
-seas_clust_latlong <- left_join(stns_seas_clusters, stn_drainage, by = "STATION_NUMBER")
+factoextra::fviz_dend(hclusts, cex= 0.4, k = 3, k_colors = c("#440154","yellow", "#228B22" ),
+main = "Dendogram for agglomerative hierarchical clustering \n (ward linkage method), ac = 0.81")
+
+
+factoextra::fviz_dend(hclusts, cex= 0.4, k = 3, k_colors = viridis::viridis_pal()(3),
+main = "Dendogram for agglomerative hierarchical clustering \n (ward linkage method), ac = 0.81")
+
+
+gapstat <- fpc::cluster.stats(stns_regsize_seas_z, sub_grp)
+gapstat$avg.silwidth #-1.01, means maybe mis-aligned
+gapstat$ch   #-1.74  
+
+
+
+for (k in 2:7) {
+  clusters <- cutree(hclusts, k = k)
+  stats <- fpc::cluster.stats(stns_regsize_seas_z, clusters)
+  cat("Clusters:", k, "-avg sil width", stats$avg.silwidth, "connectivity index:", stats$ch, "\n")
+}
 
 
 ```
 
+
+#### graph clustering results - seasonal dataset 
+```{r, echo = FALSE, message= FALSE}
+
+
+#add groups to data: 
+stns_seas_clusters <- stns_regsize_seas_z %>%
+  dplyr::mutate(cluster_number = sub_grp) %>%
+  rownames_to_column('STATION_NUMBER')
+
+seas_clust_latlong_z <- left_join(stns_seas_clusters, stn_drainage, by = "STATION_NUMBER")
+
+#graph clustering results using z scores
+
+seas_regsize_clusters_z <- seas_clust_latlong_z %>%
+  dplyr::rename("median" = "median_median_runoff",
+         "st. dev." = "median_stdev_runoff",
+         "min" = 'median_min_runoff',
+         "max" = "median_max_runoff")
+
+melted <- reshape2::melt(seas_regsize_clusters_z, id.vars= "cluster_number", measure.vars = c("median", "st. dev.", "min", "max"))
+
+#graph medians by cluster 
+ggplot(melted, aes(x = variable, y= value, fill = as.factor(cluster_number))) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar") +
+  facet_wrap(~cluster_number) + 
+    theme_bw() +
+ ylab('Runoff (z-score)') + 
+   xlab('') +
+  ggtitle(" ") + 
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  labs(color = "Cluster Number") +
+  ggtitle("Regime Size - Seasonal Data") +
+  theme(axis.text.x = element_text(angle= 90)) +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r, echo = FALSE, message= FALSE}
+
+
+#graph medians, facet by variable - z scores
+ggplot(melted, aes(x = as.factor(cluster_number), y= value, fill = as.factor(cluster_number) )) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar") +
+  facet_wrap(~variable) + 
+    theme_bw() +
+ ylab('Runoff (z score)') + 
+   xlab('Cluster Number') +
+  ggtitle(" ") + 
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  labs(color = "Cluster Number") +
+  ggtitle("Regime Size - Seasonal Data") +
+  #theme(axis.text.x = element_text(angle= 90)) +
+  #viridis::scale_fill_viridis(discrete = TRUE) +
+  scale_fill_manual(values = c("purple", "yellow", "green", "blue")) +
+  labs(fill = "Cluster Number")
+
+```
 
 #### map clustering results - Seasonal Stations
 
 ```{r}
 
-
-library(leaflet)
-pal <- colorFactor(palette = c("red", 'blue', "green"), domain = stns_seas_clusters$cluster_number)
-
-leaflet(seas_clust_latlong) %>% addTiles() %>%
-  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE, color = ~pal(cluster_number), fillColor = ~pal(cluster_number), fillOpacity = 0.6, radius = 5, stroke = FALSE)
-
+map_function(seas_clust_latlong_z)
 
 ```
 
 
-
 #PART 3 - Broader variables - IHA and Ice variables 
+#### IHA/Ice calculations for year-round data
 
 ```{r, echo = FALSE, message = FALSE}
 
 #Calculate IHA - year round data 
 
+#rename runoff cols to "Value" so they'll work in the IHA formula
+stns_daymonthyear_full_r <- stns_daymonthyear_full %>%
+ dplyr::rename("Flow" = "Value",
+         "Value" = "runoff")
+
 #make a list of dfs- split by station number
-lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER)
+lst_stns <- split(stns_daymonthyear_full_r, stns_daymonthyear_full_r$STATION_NUMBER)
 
 #apply calc_IHA function to all dfs in the list
 lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 
 #Combine all IHA outputs into one df (unnlist the dfs)
-#make a "watershed" column for graphing later
 IHA <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 View(IHA)
 
 ```
 
 
+```{r, echo = FALSE}
+#calculate ice variables- year round data
+
+#format date to year-month-day
+stns_daymonthyear_full_r <- stns_daymonthyear_full_r %>%
+  mutate(Date = as.Date(Date, format = "%d-%m-%Y")) #put in current date format, not the one I want it in.
+
+lst_stns <- split(stns_daymonthyear_full_r, stns_daymonthyear_full_r$STATION_NUMBER )
+
+#apply ice variable function to all dfs in the list, by station 
+stn_g1 <- lapply(lst_stns, Group_1_ice_cover)
+stn_g2 <- lapply(lst_stns, Group_2_freeze_thaw)
+stn_g3 <- lapply(lst_stns, Group_3_freshet)
+
+#Unlist the outputs
+output1 <- bind_rows(stn_g1, .id = "STATION_NUMBER") 
+output2 <- bind_rows(stn_g2, .id = "STATION_NUMBER")
+output3 <- bind_rows(stn_g3, .id = "STATION_NUMBER")
+
+
+#join outputs
+output1_2 <- full_join(output1, output2, by = c("STATION_NUMBER", "waterYear"))
+ice_final <- full_join(output1_2, output3, by = c("STATION_NUMBER", "waterYear")) %>% dplyr::rename("Year" = "waterYear") %>% 
+  mutate(Year = as.character(Year))
+
+
+IHA_Ice <- left_join(ice_final, IHA, by = c('STATION_NUMBER', 'Year'))
+
+```
+
+
+#### meds/z-scores- year-round data (IHA & Ice variables)
+
+```{r, echo = FALSE}
+#Calculate the medians and z scores 
+
+#remove date cols (can't z score dates)
+IHA_Ice_meds <- IHA_Ice %>% 
+  select(!c('Year', 'Station_Number', 'Thaw_Date', 'Freeze_Date', 'Freshet_Date', "Fall rate", "Zero flow days")) %>% 
+  group_by(STATION_NUMBER) %>% 
+  na.omit() %>% summarise_all(median) %>%
+  column_to_rownames("STATION_NUMBER") 
+
+IHA_Ice_meds_z <- as.data.frame(scale(IHA_Ice_meds))
+
+```
+
+
+#### IHA calculations for seasonal data (IHA only, no ice variables)
 
 ```{r, echo = FALSE, message = FALSE}
 
 #Calculate IHA - seasonal data set 
 
+#rename runoff cols to "Value" so they'll work in the IHA formula
+stns_daymonthyear_seas_r <- stns_daymonthyear_seas %>%
+  dplyr::rename("Flow" = "Value",
+         "Value" = "runoff")
+
 #make a list of dfs- split by station number
-lst_stns <- split(stns_daymonthyear, stns_daymonthyear$STATION_NUMBER)
+lst_stns <- split(stns_daymonthyear_seas, stns_daymonthyear_seas$STATION_NUMBER)
 
 #apply calc_IHA function to all dfs in the list
 lst_stns_IHA <- lapply(lst_stns, calc_IHA)
@@ -753,51 +1145,395 @@ View(IHA_seas)
 
 ```
 
-```{r, echo = FALSE, include = FALSE}
-#get a list of years and data availability - year round data 
-IHA_fullyr <- IHA %>%
-  filter(Year != 1989) %>%
-  group_by(STATION_NUMBER) %>%
-  summarise(Year = toString(unique(Year)))
+#### meds/z-scores- seasonal data
 
-#get a list of years and data availability - seasonal data 
-IHA_seasonal <- IHA_seas %>%
-  filter(Year > 1989) %>%
-  group_by(STATION_NUMBER) %>%
-  summarise(Year = toString(unique(Year)))
+```{r, echo = FALSE}
+
+#Calculate the medians and z scores in prep for clustering 
+
+IHA_seas_meds <- IHA_seas %>% 
+  select(!c('Year', 'November', 'December', 'January', 'February', "Zero flow days")) %>% 
+  group_by(STATION_NUMBER) %>% 
+  na.omit() %>% summarise_all(median) %>%
+  column_to_rownames("STATION_NUMBER") 
+
+IHA_seas_meds_z <- as.data.frame(scale(IHA_seas_meds))
+
+```
+
+
+#### clustering- full year data set
+
+```{r, echo = FALSE}
+
+#find strongest linkage method 
+#code taken from https://uc-r.github.io/hc_clustering
+
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+ac <- function(x) {
+  agnes(IHA_Ice_meds_z, method = x)$ac 
+}
+
+map_dbl(m, ac)
+
+#none look that strong, likely no clusters but proceed with ward method
+
 ```
 
 
 ```{r, echo = FALSE}
 
-#graphing data availability for year round stations 
-ggplot(IHA, aes(x = Year, y = STATION_NUMBER)) +
-  geom_tile(fill = "lightgreen", color = "white") +
-  theme_classic() +
-  ylab("") +
-  ggtitle("Full Year Data Availability - IHA variables") +
-    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 9), plot.title = element_text(hjust = 0.5))
+#clustering for part 3 - hierarchical agglomerative
+
+hclusti <- agnes(IHA_Ice_meds_z, method = "ward") 
+pltree(hclusti, cex = 0.6, hang = -1, main = "IHA/Ice variables: Full year data")
+
+#agglomerative coefficient is low, 0.58
+hclusti$ac
+
+```
+
+#### graph clustering results - full year dataset 
+
+```{r}
+
+#plot cluster with groups = 2
+sub_grp <- cutree(hclusti, k = 2)
+pltree(hclusti, cex = 0.6)
+rect.hclust(hclusti, k = 2, border = 2:5)
+
+cutree(as.hclust(hclusti), k = 2)
+
+
+factoextra::fviz_dend(hclusti, cex= 0.4, k = 3, k_colors = c("#440154","yellow", "#228B22" ),
+main = "Dendogram for agglomerative hierarchical clustering \n (ward linkage method), ac = 0.58")
+
+
+factoextra::fviz_dend(hclusti, cex= 0.4, k = 2, k_colors = viridis::viridis_pal()(2),
+main = "Dendogram for agglomerative hierarchical clustering \n (ward linkage method), ac = 0.58")
+
+
+gapstat <- fpc::cluster.stats(IHA_Ice_meds_z, sub_grp)
+gapstat$avg.silwidth #-.10, means maybe mis-aligned
+gapstat$ch   #-1.68  
+
+#add clusters to original data
+stns_full_clusters <- IHA_Ice_meds_z %>%
+  mutate(cluster_number = sub_grp) %>%
+  rownames_to_column('STATION_NUMBER')
+
+full_clust_latlong_z <- left_join(stns_full_clusters, stn_drainage, by = "STATION_NUMBER")
+
+
+```
+
+```{r, echo = FALSE, fig.width= 10}
+
+#graph full year data clustering groups 
+
+melted <- reshape2::melt(full_clust_latlong_z, id.vars= "cluster_number", measure.vars = c("October", "March", "April", "May", "June", "July", "August", "September", "1 Day Min", "1 Day Max", "3 Day Min", "3 Day Max", "7 Day Min", "7 Day Max", "30 Day Min", "30 Day Max", "90 Day Min", "90 Day Max", 'Base index', "Min", "Max", "Low pulse number", 'Low pulse length', "High pulse number", "High pulse length", "Rise rate", "Reversals", "ice_coverage_wy" , 'Freeze_DOY', 'Flow_Freeze', "Thaw_DOY", "Freshet_Dayofyear", "Freshet_Flow"))
+
+#graph medians by cluster 
+ggplot(melted, aes(x = variable, y= value, fill = as.factor(cluster_number))) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar") +
+  facet_wrap(~cluster_number) + 
+    theme_bw() +
+ ylab('Z-score of IHA variables') + 
+   xlab('') +
+  ggtitle(" ") + 
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  labs(color = "Cluster Number") +
+  ggtitle("IHA variables") +
+  theme(axis.text.x = element_text(angle= 90)) +
+ viridis::scale_fill_viridis(discrete = TRUE) +
+  theme(legend.position = "none")
+
 ```
 
 
+```{r, fig.height= 10, fig.width= 10}
+
+
+#graph clustering groups, full year data, facet by variable
+ggplot(melted, aes(x = as.factor(cluster_number), y= value, fill = as.factor(cluster_number) )) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar") +
+  facet_wrap(~variable) + 
+    theme_bw() +
+ ylab('Runoff (z score)') + 
+   xlab('Cluster Number') +
+  ggtitle(" ") + 
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  labs(color = "Cluster Number") +
+  ggtitle("Regime Size") +
+  #theme(axis.text.x = element_text(angle= 90)) +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+
+  #theme(legend.position = "none")
+  labs(fill = "Cluster Number")
+
+```
+
+####  map clustering results - full year stations
+
+```{r, echo = FALSE, message= FALSE}
+
+
+map_function(full_clust_latlong_z)
+
+```
+
+#PCA - full year data 
+PCA for IHA and Ice variables 
 ```{r, echo = FALSE}
-#graphing data availability for seasonal stations 
-ggplot(IHA_seas, aes(x = Year, y = STATION_NUMBER)) +
-  geom_tile(fill = "skyblue", color = "white") +
+
+
+pca_result1 <- prcomp(IHA_Ice_meds, scale = TRUE) 
+summary(pca_result1)
+pca_result1$rotation
+#look at the bend in the hockey stick, take two principle components 
+
+data1 <- data.frame(pc1 = pca_result1$x[,1], pc2 = pca_result1$x[,2])
+
+plot(data1$pc1, data1$pc2)
+
+screeplot(pca_result1, bstick = TRUE, type = c("barplot", "lines"),
+          npcs = min(10, length(pca_result1$sdev)),
+          ptype = "o", bst.col = "red", bst.lty = "solid",
+          xlab = "Component", ylab = "Inertia")
+
+ggbiplot::ggscreeplot(pca_result1, type = "pev") + 
+  theme_classic()+
+  scale_x_continuous(breaks=c(1,2,3,4,5,6,7,8,9,10)) +
+  xlab("Principal component number") +
+  ylab("Proportion of explained variance")
+
+full_clust_latlong_z$cluster_number
+
+#plot by cluster
+library(ggbiplot)
+ggbiplot(pca_result1, obs.scale = 1, var.scale = 1) +
+  geom_point(aes(colour=as.factor(full_clust_latlong_z$cluster_number)), size = 3) +
+ #geom_text(aes(label = full_clust_latlong_z$STATION_NUMBER), check_overlap = TRUE, size = 3) +
   theme_classic() +
-  ylab("") +
-  ggtitle("Seasonal Data Availability - IHA variables") +
-    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1, size= 9), plot.title = element_text(hjust = 0.5))
+  geom_hline(aes(yintercept=0), colour = "#999999") +
+  geom_vline(aes(xintercept=0), colour = "#999999") +
+    viridis::scale_color_viridis(discrete = TRUE) +
+  xlim(-15,15) +
+  ylim(-15,15) +
+  labs(colour= "Cluster")
+
+```
+
+
+
+
+
+```{r, echo = FALSE}
+
+
+#biplots
+## For plotting can look at the ordiplot options within the vegan package. Below are summaries of some of the options
+#PCAPlot <- vegan::ordipointlabel(pca_result1, choices = c(1:2), col = c("#3B9275", "#4C6AF0"), pch = 1:2, font = c(1,3))
+#abline(h = 0, lty = "dotted")
+#abline(v = 0, lty = "dotted")
+
+```
+
+
+#### clustering - seasonal dataset 
+
+```{r}
+#find strongest linkage method 
+#code taken from https://uc-r.github.io/hc_clustering
+
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+ac <- function(x) {
+  agnes(IHA_seas_meds_z, method = x)$ac 
+}
+
+map_dbl(m, ac)
+
+#ward method
 
 ```
 
 
 ```{r}
-unique(IHA$STATION_NUMBER)
-unique(IHA_seas$STATION_NUMBER)
 
-hy_stn_data_coll(station_number = "07NB001")
-hy_stations(station_number = "07DD001" )
+#clustering for seasonal data 
+
+hclust2s <- agnes(IHA_seas_meds_z, method = "ward") 
+pltree(hclust2s, cex = 0.6, hang = -1, main = "IHA/Ice variables: Seasonal data")
+
+#agglomerative coefficient is higher, 0.81
+hclust2s$ac
+
+
+factoextra::fviz_dend(hclusts, cex= 0.4, k = 2, k_colors = viridis::viridis_pal()(2),
+main = "Dendogram for agglomerative hierarchical clustering \n (ward linkage method), ac = 0.83")
+
+gapstat <- fpc::cluster.stats(IHA_seas_meds_z, sub_grp)
+gapstat$avg.silwidth #1.19, means maybe mis-aligned
+gapstat$ch   #2.417 
+#this looks the best so far
+
+
+for (k in 2:7) {
+  clusters <- cutree(hclust2s, k = k)
+  stats <- fpc::cluster.stats(IHA_seas_meds_z, clusters)
+  cat("Clusters:", k, "-avg sil width", stats$avg.silwidth, "connectivity index:", stats$ch, "\n")
+}
+
+
+```
+
+
+```{r, echo = FALSE}
+
+#plot cluster with groups = 2
+sub_grp <- cutree(hclust2s, k = 2)
+
+cutree(as.hclust(hclust2s), k = 2)
+
+#add clusters to original data
+stns_seas_clusters <- IHA_seas_meds_z %>%
+  mutate(cluster_number = sub_grp) %>%
+  rownames_to_column('STATION_NUMBER')
+
+seas_clust_latlong_z <- left_join(stns_seas_clusters, stn_drainage, by = "STATION_NUMBER")
+
+
+```
+
+
+#### graph clustering results - seasonal dataset 
+```{r, echo = FALSE, message= FALSE}
+#graph clustering results using z scores
+
+melted <- reshape2::melt(seas_clust_latlong_z, id.vars= "cluster_number", measure.vars = c("October", "March", "April", "May", "June", "July", "August", "September", "1 Day Min", "1 Day Max", "3 Day Min", "3 Day Max", "7 Day Min", "7 Day Max", "30 Day Min", "30 Day Max", "90 Day Min", "90 Day Max", 'Base index', "Min", "Max", "Low pulse number", 'Low pulse length', "High pulse number", "High pulse length", "Rise rate", "Fall rate", "Reversals" ))
+
+#graph medians by cluster 
+ggplot(melted, aes(x = variable, y= value, fill = as.factor(cluster_number))) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar") +
+  facet_wrap(~cluster_number) + 
+    theme_bw() +
+ ylab('Z-score of IHA variables') + 
+   xlab('') +
+  ggtitle(" ") + 
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  labs(color = "Cluster Number") +
+  ggtitle("IHA variables") +
+  theme(axis.text.x = element_text(angle= 90)) +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+  theme(legend.position = "none")
+
+
+```
+```{r, echo = FALSE, fig.height= 10, fig.width= 10}
+
+
+#graph clustering groups, full year data, facet by variable
+ggplot(melted, aes(x = as.factor(cluster_number), y= value, fill = as.factor(cluster_number) )) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar") +
+  facet_wrap(~variable) + 
+    theme_bw() +
+ ylab('Runoff (z score)') + 
+   xlab('Cluster Number') +
+  ggtitle(" ") + 
+      theme(plot.title = element_text(hjust = 0.5, size = 12)) +
+  labs(color = "Cluster Number") +
+  ggtitle("Regime Size") +
+  #theme(axis.text.x = element_text(angle= 90)) +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+  #theme(legend.position = "none")
+  labs(fill = "Cluster Number")
+
+
+```
+
+
+####  map clustering results - Seasonal Stations
+
+```{r, echo = FALSE, message= FALSE}
+
+map_function(seas_clust_latlong_z)
+
+```
+
+
+
+#PCA - seasonal data set
+```{r, echo = FALSE}
+
+
+#IHA_seas_meds_log <- log(IHA_seas_meds_rem + 1)
+#print(vegan::decorana(IHA_seas_meds_log))
+#axis lengths are <3 or >3 so assume linear and do PCA 
+
+pca_result2 <- prcomp(IHA_seas_meds)
+summary(pca_result2)
+pca_result2$rotation
+#look at the bend in the hockey stick, take two principle components 
+
+data2 <- data.frame(pc1 = pca_result2$x[,1], pc2 = pca_result2$x[,2])
+
+plot(data2$pc1, data2$pc2)
+
+screeplot(pca_result2, bstick = TRUE, type = c("barplot", "lines"),
+          npcs = min(10, length(pca_result2$sdev)),
+          ptype = "o", bst.col = "red", bst.lty = "solid",
+          xlab = "Component", ylab = "Inertia")
+
+ggbiplot::ggscreeplot(pca_result2, type = "pev") + 
+  theme_classic()+
+  scale_x_continuous(breaks=c(1,2,3,4,5,6,7,8,9,10)) +
+  xlab("Principal component number") +
+  ylab("Proportion of explained variance")
+
+
+#plot by cluster
+library(ggbiplot)
+ggbiplot(pca_result2, obs.scale = 1, var.scale = 1) +
+  geom_point(aes(colour=as.factor(seas_clust_latlong_z$cluster_number)), size = 3) +
+ geom_text(aes(label = seas_clust_latlong_z$STATION_NUMBER), check_overlap = TRUE, size = 3) +
+  theme_classic() +
+  geom_hline(aes(yintercept=0), colour = "#999999") +
+  geom_vline(aes(xintercept=0), colour = "#999999") +
+    viridis::scale_color_viridis(discrete = TRUE) +
+  xlim(-12000,6000) +
+  ylim(-5000, 5000) +
+  labs(colour= "Cluster")
+
+
+```
+
+
+```{r, echo = FALSE}
+
+
+
+ 
+```
+
+
+```{r, echo = FALSE}
+
+
+
+```
+
+
+```{r, echo = FALSE}
+
+
 
 ```
 
