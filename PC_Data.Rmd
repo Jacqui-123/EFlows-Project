@@ -136,8 +136,6 @@ write.csv(muskrat_count_quant, "Muskrat_Counts_Allyrs_Quantiles.csv")
 #PC closed water months for Peace and Athabasca precip data: 1,2,3,11,12 - ECCC used the same months for closed water data for flow and WL data 
 #basically PC didn't use april or oct
 
-
-
 #full year df, all months used
 ft_chip_fullyr <- `Fort_Chipewyan Climate Data` # %>%
   #filter(year >1989) #can filter by year if needed

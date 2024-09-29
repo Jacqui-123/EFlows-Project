@@ -1,8 +1,5 @@
 ## Clustering Analysis for River Types within the PAD System 
 
-#### This project describes......
-
-
 ```{r, echo=FALSE, message = FALSE, warning= FALSE, include = FALSE}
 library(IHA)
 library(tidyverse)
@@ -21,7 +18,6 @@ library(caTools)
 library(cluster)    # clustering algorithms
 library(factoextra) # clustering visualization
 library(dendextend) #for comparing two dendrograms
-
 #install.packages("IHA", repos="http://R-Forge.R-project.org")
 ```
 
@@ -582,6 +578,8 @@ gapstat$ch   #40 - likely this has been overfit - or that even though it's the b
 
 #looks like 2 clusters minimizes the connectivity index. silhouette width is negative and likely most clusters have been assigned to the wrong cluster
 
+
+
 ```
 
 
@@ -720,7 +718,7 @@ for (k in 2:10) {
 
 #graph clustering results
 seas_z_clusters <- as.data.frame(sub_grp) %>% 
-  dplyr::rename(cluster_number = sub_grp ) %>%
+  dplyr::rename(cluster_number = sub_grp) %>%
   rownames_to_column('STATION_NUMBER') %>%
   left_join(stns_seas_zs, by = 'STATION_NUMBER') %>%
   group_by(cluster_number, weeks) %>%

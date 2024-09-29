@@ -1,10 +1,10 @@
 # Freeze and Thaw Timing for Sites on the Peace-Athabasca Delta (PAD) 
 
-Data is from hydrometric stations managed by the Water Survey of Canada. Stations tidied from database using tidyhydat in R. 
+Data is from hydrometric stations managed by the Water Survey of Canada. Data extracted from database using tidyhydat in R. 
 
-Workflow for the calculations and graphing for the freeze-up dates, freshet onset, and continuous ice coverage for a couple of stations on the PAD. 
+Development and testing for the calculations and graphing for the freeze-up dates, freshet onset, and continuous ice coverage for stations within the Peace-Athabasca Delta. 
 
-Functions for these calculations can be found in "Ice_Variable_Functions.R"
+Functions for these calculations can be found in "EFlows Functions.R" and are being made into an R package called "icicle"
 
  
 ```{r, warning= FALSE, include= FALSE}
@@ -60,6 +60,10 @@ day_of_year_calc <- function(data){
 
   return(df3)
 }
+
+```
+
+```{r}
 
 ```
 
@@ -328,7 +332,7 @@ df_final <- df_final[-x,]
 
 
 ```
-
+#4) Graphing
 ## Days of Total continuous ice coverage per water year
 
 ```{r, echo = FALSE}
@@ -425,7 +429,7 @@ stn_07BK007_wy_doy_no1971 <- stn_07BK007_wy_doy %>%
 
 #View(stn_07BK007_wy_doy_no1971)
 ```
-
+#5) Freshet functions development
 #freshet calc no function
 ```{r, echo= FALSE, eval=FALSE}
 

@@ -23,13 +23,17 @@ library(knitr)
 #1 extract flow data and add column for water year and day of the year
 
 ```{r}
+
 #get stns to analyze
-stn_all <- tidyhydat::hy_daily_flows(station_number = c('07KC001','07DA001')) 
+stn_all <- tidyhydat::hy_daily_flows(station_number = c('07HA001')) 
+
+
+#write.csv(stn_all, "PeaceRiver_PR_07HA001_RawFlowData_1915-2020.csv")
 
 stn_all <- stn_all %>%
 group_by(STATION_NUMBER) %>%
 #make a complete set of days for each year 
-complete(Date = seq.Date(as.Date("2000/10/1"), as.Date("2022/09/30"), by="day"))
+complete(Date = seq.Date(as.Date("1989/10/1"), as.Date("2021/09/30"), by="day"))
 
 #add water year
 stn_all <- addWaterYear(stn_all) %>%
@@ -51,24 +55,24 @@ rm(stn_all_split, stn_all_split_doy)
 
 ```
 
-#2 export csvs for flow data
+#Export raw flow data to csvs
 Note: these csvs are untidied flow data. No estimates, no deleting years with >14 days of missing data, etc. See below for tidied data
 
 ```{r}
+#before do this make sure to get rid of years we don't want, this wasn't done above
+#df1 <- stn_all %>% filter(STATION_NUMBER == "07KC001")
+#df2 <- stn_all %>% filter(STATION_NUMBER == "07NB001 ")
+#df3 <- stn_all %>% filter(STATION_NUMBER == "07KE001 ")
+#df4 <- stn_all %>% filter(STATION_NUMBER == "07DA001 ")
 
-df1 <- stn_all %>% filter(STATION_NUMBER == "07KC001")
-df2 <- stn_all %>% filter(STATION_NUMBER == "07NB001 ")
-df3 <- stn_all %>% filter(STATION_NUMBER == "07KE001 ")
-df4 <- stn_all %>% filter(STATION_NUMBER == "07DA001 ")
-
-write.csv(df1, "PeaceRiver_07KC001_Flow.csv")
-write.csv(df2, "SlaveRiver_07NB001_Flow.csv")
-write.csv(df3, "BirchRiver_07KE001_Flow.csv")
-write.csv(df4, "AthabascaRiver_07DA001_Flow.csv")
+#write.csv(df1, "PeaceRiver_07KC001_Flow.csv")
+#write.csv(df2, "SlaveRiver_07NB001_Flow.csv")
+#write.csv(df3, "BirchRiver_07KE001_Flow.csv")
+#write.csv(stn_all, "AthabascaRiver_07DA001_RawFlowData.csv")
 
 ```
 
-#3 Make three separate datasets in prep for IHA calculations: 
+#2 Make three separate datasets in prep for IHA calculations: 
 -full year
 -open water data (April-October) 
 -winter/closed water (November-March)
@@ -86,15 +90,15 @@ stn_closed <- stn_all %>%
 
 ```
 
-#4 Prep for IHA calculations: Get rid of years that have more than 14 consecutive days of missing data, and fill in missing values
+#3 Prep for IHA calculations: Get rid of years that have more than 14 consecutive days of missing data, and fill in missing values
 -full dataset
 ```{r}
 
 #data prep for full dataset
 stn_cln <- stn_all %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(waterYear > 2000) %>%
-  filter(waterYear != 2022)
+  filter(waterYear > 1989) %>%
+  filter(waterYear != 2021 & waterYear != 2022 & waterYear != 2023)
 
 #delete years that have >14 days missing data using calc_rle function from functions for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
@@ -104,10 +108,12 @@ lst_stns_cln_rle <- lapply(lst_stns_cln, calc_rle)
 stns_ready_full <- bind_rows(lst_stns_cln_rle, .id = "STATION_NUMBER") 
 
 #change date format and fill any values that are missing with preceding values 
-stns_dmy<- stns_ready_full %>%
+stns_dmy <- stns_ready_full %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+unique(stns_dmy$waterYear)
 
 ```
 
@@ -118,8 +124,8 @@ stns_dmy<- stns_ready_full %>%
 #data prep for open water data
 stn_cln <- stn_openwater %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(waterYear > 1960) %>%
-  filter(waterYear != 2022)
+  filter(waterYear > 1989) %>%
+  filter(waterYear != 2021 & waterYear != 2022 & waterYear != 2023)
 
 #delete years that have >14 days missing data using calc_rle function from functions for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
@@ -134,6 +140,8 @@ stns_dmy_openwater <- stns_ready_openwater %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
+unique(stns_dmy_openwater$waterYear)
+
 ```
 
 -Winter/closed water data
@@ -141,10 +149,10 @@ stns_dmy_openwater <- stns_ready_openwater %>%
 ```{r}
 
 #data prep for winter/closed water
-stn_cln <- stn_openwater %>%
+stn_cln <- stn_closed %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(waterYear > 1960) %>%
-  filter(waterYear != 2022)
+  filter(waterYear > 1989) %>%
+  filter(waterYear != 2021 & waterYear != 2022 & waterYear != 2023)
 
 #delete years that have >14 days missing data using calc_rle function from functions for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
@@ -159,15 +167,16 @@ stns_dmy_closedwater <- stns_ready_closed %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
+unique(stns_dmy_closedwater$waterYear)
+
 ```
 
-#5 IHA calculations
+#4 IHA calculations
 -full year
 -open water
 -closed water
 
 ```{r}
-
 #IHA calculations: -full year
 #make a list of dfs- split by station number
 lst_stns <- split(stns_dmy, stns_dmy$STATION_NUMBER )
@@ -204,25 +213,158 @@ lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 #Combine all IHA outputs into one df (unnlist the dfs)
 #make a "watershed" column for graphing later
 IHA_closedwater <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
-
 ```
-Calculate Quantiles  
+
+
 ```{r}
 
-IHA_fullyr_q <- IHA_fullyr %>%
-  filter(STATION_NUMBER == "07DA001") %>%
-  select('Year', `High pulse length`)
 
-quan <- quantile(IHA_fullyr_q$`High pulse length`, probs = c(0, .25,.75,1))
+write.csv(IHA_fullyr, "PeaceRiver_PR_07HA001_IHAfullyear_1990-2020.csv")
+write.csv(IHA_openwater, "PeaceRiver_PR_07HA001_IHAopenwater_1990-2020.csv")
+write.csv(IHA_closedwater, "PeaceRiver_PR_07HA001_IHAclosedwater_1990-2020.csv")
 
-quan[1]
-quan[2]
-quan[3]
-quan[4]
+
+
 
 ```
 
-#6 Export IHA variables to csv with a separate csv by station number
+#5 
+
+#6 Calculate Quantiles  
+```{r}
+
+#make a list of dfs- split by station number
+lst_stns <- split(stns_dmy, stns_dmy$STATION_NUMBER )
+#apply calc_IHA function to all dfs in the list
+lst_stns_IHA <- lapply(lst_stns, calc_IHA)
+#Combine all IHA outputs into one df (unnlist the dfs)
+IHA_fullyr <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
+
+
+IHA_fullyr_test <- IHA_fullyr %>%
+  select('STATION_NUMBER', '1 Day Max', '7 Day Min') %>%
+  filter(STATION_NUMBER == '07DA001')
+
+#df_spl <- split(IHA_fullyr_1daymax_test, IHA_fullyr_1daymax_test$STATION_NUMBER)
+View(IHA_fullyr_1daymax_test)
+
+
+#####################
+stn_nu <- list()
+for (i in unique(IHA_fullyr_1daymax_test$STATION_NUMBER)) {
+  df_subset <- IHA_fullyr_1daymax_test[IHA_fullyr_1daymax_test$STATION_NUMBER == i,]
+  #st <- df_subset$STATION_NUMBER
+  #stn_nu[[i]] <- i
+  onedaymax <- quantile(IHA_fullyr_1daymax_test$`1 Day Max`, probs= quants)
+  one_day_max <- as.data.frame(onedaymax)
+  #cbind(one_day_max, STATION_NUMBER)
+  #STATION_NUMBER <- unlist(stn_nu)
+  df_quant <- tibble::rownames_to_column(one_day_max, "Quantiles")
+  #output <- cbind(df_quant, STATION_NUMBER)
+  print(df_quant)
+}
+
+##################
+
+
+#one station, two values
+  onedaymax <- quantile(IHA_fullyr_test$`1 Day Max`, probs= quants)
+  one_day_max <- as.data.frame(onedaymax)
+  sevendaymin <- quantile(IHA_fullyr_test$`7 Day Min`, probs= quants)
+  sevendaymin <- as.data.frame(sevendaymin)
+  sevendaymin <- tibble::rownames_to_column(sevendaymin, "Quantiles")
+  STATION_NUMBER <- IHA_fullyr_test$STATION_NUMBER[0:4]
+  df<- cbind(STATION_NUMBER, sevendaymin, one_day_max )
+  rownames(df) <- NULL
+  print(df)
+
+  
+  
+calc_quantiles <- function(data){
+  quants = c(0,.25,.75,1)
+  onedaymax <- quantile({{data}}$`1 Day Max`, probs= quants)
+  one_day_max <- as.data.frame(onedaymax)
+  sevendaymin <- quantile({{data}}$`7 Day Min`, probs= quants)
+  seven_day_min <- as.data.frame(sevendaymin)
+  sevendaym <- tibble::rownames_to_column(seven_day_min, "Quantiles")
+  STATION_NUMBER <- {{data}}$STATION_NUMBER
+  df <- cbind.data.frame(STATION_NUMBER, sevendaym, one_day_max )
+  rownames(df) <- NULL
+  return(df)
+}
+
+
+IHA_fullyr_test <- IHA_fullyr %>%
+  select(`7 Day Min`, `1 Day Max`,'STATION_NUMBER' )
+
+
+stnsplit <- split(IHA_fullyr_test, IHA_fullyr_test$STATION_NUMBER)
+lst_stns_test <- lapply(stnsplit, calc_quantiles)
+bnd <- bind_rows(lst_stns_test, .id = 'STATION_NUMBER' )
+```
+
+##CALCULATE QUANTILES AND EXPORT AS CSVS
+```{r}
+ 
+calc_quantiles <- function(data){
+  quants = c(0,.25,.75,1)
+  onedaymax <- quantile({{data}}$`1 Day Max`, probs= quants)
+  one_day_max <- as.data.frame(onedaymax)
+  sevendaymin <- quantile({{data}}$`7 Day Min`, probs= quants)
+  seven_day_min <- as.data.frame(sevendaymin)
+  sevendaym <- tibble::rownames_to_column(seven_day_min, "Quantiles")
+  STATION_NUMBER <- {{data}}$STATION_NUMBER
+  df <- cbind.data.frame(STATION_NUMBER, sevendaym, one_day_max )
+  rownames(df) <- NULL
+  return(df)
+}
+
+
+#full year
+#calc_quantiles(IHA_fullyr)
+
+IHA_fullyr_71  <- IHA_fullyr %>%
+  select(`7 Day Min`, `1 Day Max`,'STATION_NUMBER' )
+
+stnsplit <- split(IHA_fullyr_71, IHA_fullyr_71$STATION_NUMBER)
+lst_stns_test <- lapply(stnsplit, calc_quantiles)
+df <- bind_rows(lst_stns_test, .id = 'STATION_NUMBER' )
+rm(stnsplit,lst_stns_test )
+#write.csv(output1, "Node_States_FullYear_Flow.csv")
+
+quantile(IHA_fullyr$`1 Day Max`, probs = quants)
+
+#open water
+calc_quantiles(IHA_openwater)
+IHA_openwater_71 <- IHA_openwater %>%
+  select(`7 Day Min`, `1 Day Max`,'STATION_NUMBER' )
+
+stnsplit <- split(IHA_openwater_71, IHA_openwater_71$STATION_NUMBER)
+lst_stns_test <- lapply(stnsplit, calc_quantiles)
+output2 <- bind_rows(lst_stns_test, .id = 'STATION_NUMBER')
+
+rm(stnsplit,lst_stns_test )
+
+quantile(IHA_openwater$`7 Day Min`, probs = quants)
+#write.csv(output2, "Node_States_OpenWater_Flow.csv")
+
+
+#closed water
+calc_quantiles(IHA_closedwater)
+IHA_closed_71 <- IHA_closedwater %>%
+    select(`7 Day Min`, `1 Day Max`,'STATION_NUMBER' )
+
+stnsplit <- split(IHA_closed_71, IHA_closed_71$STATION_NUMBER)
+lst_stns_test <- lapply(stnsplit, calc_quantiles)
+df <- bind_rows(lst_stns_test, .id = 'STATION_NUMBER' )
+
+quantile(IHA_closedwater$`1 Day Max`, probs = quants)
+
+#write.csv(output1, "Node_States_ClosedWater_Flow.csv")
+
+```
+
+#7 Export IHA variables to csv with a separate csv by station number
 
 ```{r}
 #select variables for each dataset
@@ -255,10 +397,14 @@ for (i in unique(IHA_closedwater_s$STATION_NUMBER)) {
   write.csv(dfsubset, paste0(i, "_closed_flow_IHA.csv"))
 }
 
+
+
+
+
 ```
 
 
-#7 Calculate ice variables
+#8 Calculate ice variables
 -full dataset 
 ```{r}
 
@@ -420,7 +566,7 @@ df_ice_clwater_final <- df_ice_clwater[!duplicated(as.list(df_ice_clwater))] #re
 
 ```
 
-#8 Export ice variables to csv
+#9 Export ice variables to csv
 
 ```{r}
 
@@ -450,12 +596,16 @@ for (i in unique(df_ice_clwater_final$STATION_NUMBER)) {
 #1 extract water level for stations and add column for water year and day of the year
 ```{r}
 
-stns_wl <- tidyhydat::hy_daily_levels(station_number = c("07KF002", "07KF003", "07MD001"))
+stns_wl <- tidyhydat::hy_daily_levels(station_number = '07DD011')
 
 stn_all <- stns_wl %>%
 group_by(STATION_NUMBER) %>%
 #make a complete set of days for each year 
-complete(Date = seq.Date(as.Date("1960/10/1"), as.Date("2022/09/30"), by="day"))
+complete(Date = seq.Date(as.Date("1989/10/1"), as.Date("2021/09/30"), by="day"))
+
+#add a regular year
+stn_all <- stn_all %>%
+    mutate(Date = ymd(Date),  Year = format_ISO8601(Date, precision = "y")) 
 
 #add water year
 stn_all <- addWaterYear(stn_all) %>%
@@ -467,20 +617,102 @@ stn_all_split_doy <- lapply(stn_all_split, calc_day_of_wyear)
 stn_all <- bind_rows(stn_all_split_doy, .id = "STATION_NUMBER")
 
 rm(stn_all_split, stn_all_split_doy)
+
+```
+
+#Correct for elevation 
+
+```{r}
+#Note: WL needs datum elevation corrections but there are incongruities as to which have been done in tidyhydat already. 
+
+#These rules were followed: 
+
+#1) if both min and max wl values are around 200, assume corrections were done and do not correct
+
+#2) if min < 10, and and max >200, assume no corrections were done and make all corrections
+
+#3) if both min and max wl values are low (<200), assume the AEM 204 correction was done and add the GNSS correction to all wl values.
+
+min(stn_all$Value, na.rm = TRUE) 
+max(stn_all$Value, na.rm = TRUE) 
+
+
+#WL conversion factor corrections:
+
+#Case 1) - do nothing
+
+#Case 2)
+stn_all <- stn_all %>%
+  mutate(Value = case_when(Year < 2014 ~  (Value - 204 + 204.256),
+                          Year  >= 2014 ~ (Value + 204.256)))
+
+#Case 3)  
+stn_all <- stn_all %>%
+  mutate(Value = Value + 207.246)
+  
+#outputs should be around 200
+min(stn_all$Value, na.rm = TRUE)
+max(stn_all$Value, na.rm = TRUE)
+
+
+#LAKE CLAIRE NEAR OUTLET TO PRAIRIE RIVER 07KF002
+#MAMAWI LAKE CHANNEL AT OLD DOG CAMP	07KF003
+#LAKE ATHABASCA AT FORT CHIPEWYAN	 07MD001
+#Slave River at Fort Fitzgerald  07NB001: (case #3)
+#Peace River Below Chenal Des Quatres Fourches 07KC005 (case #2)
+#Riviere Des Rochers Above Slave River 07NA001 (case #2)
+#Athabasca River at Embarras Airport 07DD001 (case #1)
+#Peace River at Peace Point 07KC001 (case #3)
+#Lake Athabasca at Fort Chipewyan 07MD001 (case #2)
+#Peace River at Peace Point 07KC001 (case #3)
+#Peace River below Chenal des Quatre Fourches 07KC005 (case #2)
+#ATHABASCA RIVER ABOVE JACKFISH CREEK	07DD007 (case #2)
+#ATHABASCA RIVER NEAR OLD FORT	07DD011 (case #2) 
+
+
+```
+
+#Freeze up dates wL: merge ice variable df (output #2) with the corrected stn_all for WL df
+
+```{r}
+
+#rename so the columns have the same name
+output2_rename <- output2 %>%
+  rename("Date" = "Freeze_Date")
+
+library(data.table)
+setDT(output2_rename)
+setDT(stn_all)
+
+#merge and just keep the ice variable outputs with the freeze dates
+merged <- merge(output2_rename, stn_all, by = "Date", all.x = TRUE)
+
+#next calc quantiles for Values column (Wls)
+
+quants = c(0,.25,.75,1)
+
+quantile(merged$Value, probs = quants, na.rm =TRUE )
+
+df <- merged %>%
+na.omit("Value") 
+
+df$waterYear.x
+
 ```
 
 #2 export water level data to csvs
 Note: these csvs are untidied flow data. No estimates, no deleting years with >14 days of missing data, etc. See below for tidied data
 
 ```{r}
+#before do this make sure to get rid of years we don't want, this wasn't done above
 
-df1 <- stn_all %>% filter(STATION_NUMBER == "07KF002")
-df2 <- stn_all %>% filter(STATION_NUMBER == "07KF003")
-df3 <- stn_all %>% filter(STATION_NUMBER == "07MD001")
+#df1 <- stn_all %>% filter(STATION_NUMBER == "07KF002")
+#df2 <- stn_all %>% filter(STATION_NUMBER == "07KF003")
+#df3 <- stn_all %>% filter(STATION_NUMBER == "07MD001")
 
-write.csv(df1, "LakeClaire_07KF002_WL.csv")
-write.csv(df2, "MamawiLake_07KF003_WL.csv")
-write.csv(df3, "LakeAthabasca_07MD001_WL.csv")
+#write.csv(df1, "LakeClaire_07KF002_WL.csv")
+#write.csv(df2, "MamawiLake_07KF003_WL.csv")
+#write.csv(df3, "LakeAthabasca_07MD001_WL.csv")
 
 ```
 
@@ -510,8 +742,10 @@ stn_closed <- stn_all %>%
 #data prep for full dataset
 stn_cln <- stn_all %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(waterYear > 1960) %>%
-  filter(waterYear != 2022)
+  filter(waterYear > 1989) %>%
+  filter(waterYear != 2023) 
+  #filter(waterYear != 2021 & waterYear != 2022 & waterYear != 2023) 
+  
 
 #delete years that have >14 days missing data using calc_rle function from functions for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
@@ -526,17 +760,22 @@ stns_dmy_wl <- stns_ready_full_wl %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
 
+ yrs_stn_full <- unique(stns_dmy_wl$waterYear)
+ 
+
 ```
 
 -open water
 
 ```{r}
 
-#data prep for full dataset
+#data prep for open water dataset
 stn_cln <- stn_openwater %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(waterYear > 1960) %>%
-  filter(waterYear != 2022)
+ filter(waterYear > 1989) %>%
+  filter(waterYear != 2023) 
+
+ # filter(waterYear != 2021 & waterYear != 2022) 
 
 #delete years that have >14 days missing data using calc_rle function from functions for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
@@ -550,17 +789,22 @@ stns_opwater_wl <- stns_ready_opwater_wl %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+ yrs_stn_openwater <- unique(stns_opwater_wl$waterYear)
+
 ```
 
 -closed water
 
 ```{r}
 
-#data prep for full dataset
+#data prep for closed water dataset
 stn_cln <- stn_closed %>%
   mutate(Date = as.Date(Date)) %>%
-  filter(waterYear > 1960) %>%
-  filter(waterYear != 2022)
+ filter(waterYear > 1989) %>%
+    filter(waterYear != 2023) 
+
+# filter(waterYear != 2021 & waterYear != 2022) 
 
 #delete years that have >14 days missing data using calc_rle function from functions for this project
 lst_stns_cln <- split(stn_cln, stn_cln$STATION_NUMBER )
@@ -574,6 +818,8 @@ stns_dmy_cl_wl <- stns_ready_cl_wl %>%
   mutate(Date = format(Date,"%d-%m-%Y")) %>%
   group_by(STATION_NUMBER) %>%
   fill(Value, .direction = 'downup') #fill missing values going down then up (ie at start of df)
+
+yrs_stn_clwater <- unique(stns_dmy_cl_wl$waterYear)
 
 ```
 
@@ -592,7 +838,6 @@ lst_stns <- split(stns_dmy_wl, stns_dmy_wl$STATION_NUMBER )
 lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 
 #Combine all IHA outputs into one df (unnlist the dfs)
-#make a "watershed" column for graphing later
 IHA_fullyr_wl <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 
 ###########################
@@ -602,10 +847,10 @@ IHA_fullyr_wl <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 lst_stns <- split(stns_opwater_wl, stns_opwater_wl$STATION_NUMBER )
 
 #apply calc_IHA function to all dfs in the list
+#only works for group 2 output
 lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 
 #Combine all IHA outputs into one df (unnlist the dfs)
-#make a "watershed" column for graphing later
 IHA_openwater_wl <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
 
 ###########################
@@ -618,8 +863,85 @@ lst_stns <- split(stns_dmy_cl_wl, stns_dmy_cl_wl$STATION_NUMBER )
 lst_stns_IHA <- lapply(lst_stns, calc_IHA)
 
 #Combine all IHA outputs into one df (unnlist the dfs)
-#make a "watershed" column for graphing later
 IHA_closedwater_wl <- bind_rows(lst_stns_IHA, .id = "STATION_NUMBER")
+
+```
+
+#Calculate Quantiles 
+```{r}
+#function
+
+calc_quantiles <- function(data){
+  quants = c(0,.25,.75,1)
+  onedaymax <- quantile({{data}}$`1 Day Max`, probs= quants)
+  one_day_max <- as.data.frame(onedaymax)
+  #sevendaymin <- quantile({{data}}$`7 Day Min`, probs= quants)
+  #seven_day_min <- as.data.frame(sevendaymin)
+  #sevendaym <- tibble::rownames_to_column(seven_day_min, "Quantiles")
+  one_day_max <- tibble::rownames_to_column(one_day_max, "Quantiles")
+  STATION_NUMBER <- {{data}}$STATION_NUMBER
+  return(one_day_max)
+  #df <- cbind.data.frame(STATION_NUMBER, one_day_max )
+  #rownames(df) <- NULL
+  #return(df)
+}
+
+
+```
+
+-full year
+```{r}
+
+#full year
+df <- IHA_fullyr_wl %>%
+    select(`1 Day Max`,'STATION_NUMBER' )
+
+stnsplit <- split(df, df$STATION_NUMBER)
+lst_stns_test <- lapply(stnsplit, calc_quantiles)
+output4 <- bind_rows(lst_stns_test, .id = 'STATION_NUMBER' )
+
+#write.csv(output4, "FullYear_WL07kc005.csv")
+```
+
+```{r}
+#open water
+
+df <- IHA_openwater_wl %>%
+    select(`1 Day Max`,'STATION_NUMBER')
+
+stnsplit <- split(df, df$STATION_NUMBER)
+lst_stns <- lapply(stnsplit, calc_quantiles)
+output5 <- bind_rows(lst_stns, .id = 'STATION_NUMBER' )
+
+
+#write.csv(output5, "OpenWater_WL07kc005.csv")
+
+```
+
+```{r}
+#closed water 
+df <- IHA_closedwater_wl %>%
+    select(`1 Day Max`,'STATION_NUMBER')
+
+stnsplit <- split(df, df$STATION_NUMBER)
+lst_stns <- lapply(stnsplit, calc_quantiles)
+output6 <- bind_rows(lst_stns, .id = 'STATION_NUMBER' )
+
+
+#write.csv(output6, "ClosedWater_WL07kc005.csv")
+
+
+```
+
+```{r}
+
+
+write.csv(stn_cln, "Athabasca_River_OldFort_07DD011_OpenWater_WL_DatumCorrected_1990-2022.csv" )
+
+write.csv(stn_all,  'PR_QuatresFourches_07KC005_Raw_WL_Data_DatumCorrected_1990-2020.csv')
+write.csv(IHA_fullyr_wl,"PR_QuatresFourches_07KC005_fullyear_WL_DatumCorrected_1990-2020.csv")
+write.csv(IHA_closedwater_wl,'PR_QuatresFourches_07KC005_closedwater_WL_DatumCorrected_1990-2020.csv')
+write.csv(IHA_openwater_wl,'PR_QuatresFourches_07KC005_openwater_WL_DatumCorrected_1990-2020.csv')
 
 ```
 
